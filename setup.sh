@@ -126,7 +126,30 @@ for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
         open(g, 'w').write(t)
 PY
 
-flutter pub add firebase_core firebase_auth cloud_firestore excel
+# Fingerprint lock and bill reminders: need desugaring, AppCompat and an AppCompat launch theme.
+python3 - <<'PY'
+import os, re
+for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
+    if not os.path.exists(g):
+        continue
+    t = open(g).read()
+    if 'desugar_jdk_libs' in t:
+        continue
+    if g.endswith('.kts'):
+        t = t.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
+        t += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n    implementation("androidx.appcompat:appcompat:1.7.0")\n}\n'
+    else:
+        t = t.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
+        t += '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n    implementation "androidx.appcompat:appcompat:1.7.0"\n}\n'
+    open(g, 'w').write(t)
+for f in ('android/app/src/main/res/values/styles.xml', 'android/app/src/main/res/values-night/styles.xml'):
+    if os.path.exists(f):
+        t = open(f).read()
+        t = re.sub(r'parent="@android:style/Theme\.[A-Za-z.]*NoTitleBar"', 'parent="Theme.AppCompat.DayNight.NoActionBar"', t)
+        open(f, 'w').write(t)
+PY
+
+flutter pub add firebase_core firebase_auth cloud_firestore excel local_auth:^2.3.0 flutter_local_notifications:^18.0.1 timezone
 flutter pub get
 flutter analyze || echo "WARNING: analyze reported issues (continuing)"
 flutter test || echo "WARNING: tests failed (continuing)"

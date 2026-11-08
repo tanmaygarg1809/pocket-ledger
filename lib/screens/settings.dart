@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../cloud.dart';
 import '../excel_backup.dart';
+import '../app_lock.dart';
+import '../reminders.dart';
 import 'goals.dart';
 import 'payday.dart';
 import 'splitwise.dart';
@@ -254,6 +256,52 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const Divider(),
+            SwitchListTile(
+              secondary: const Icon(Icons.fingerprint),
+              title: const Text('Lock with fingerprint'),
+              subtitle: const Text('Uses your phone fingerprint, face or PIN when you open the app'),
+              value: store.appLock,
+              onChanged: (v) async {
+                if (v && !await AppLock.available()) {
+                  if (context.mounted) _snack(context, 'Set up a screen lock or fingerprint on your phone first.');
+                  return;
+                }
+                if (await AppLock.authenticate(v ? 'Turn on app lock' : 'Turn off app lock')) {
+                  await store.setAppLock(v);
+                }
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.notifications_active_outlined),
+              title: const Text('Bill reminders'),
+              subtitle: Text(store.remindDays == 0
+                  ? 'Notify on the day a recurring bill is due'
+                  : 'Notify ${store.remindDays} day${store.remindDays == 1 ? '' : 's'} before a recurring bill is due'),
+              value: store.remindOn,
+              onChanged: (v) async {
+                if (v && !await Reminders.askPermission()) {
+                  if (context.mounted) _snack(context, 'Allow notifications for Pocket Ledger in phone settings.');
+                  return;
+                }
+                await store.setReminders(on: v);
+              },
+            ),
+            if (store.remindOn)
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 72, right: 16),
+                title: const Text('Remind me'),
+                trailing: DropdownButton<int>(
+                  value: store.remindDays,
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('On the day')),
+                    DropdownMenuItem(value: 1, child: Text('1 day before')),
+                    DropdownMenuItem(value: 2, child: Text('2 days before')),
+                    DropdownMenuItem(value: 3, child: Text('3 days before')),
+                    DropdownMenuItem(value: 7, child: Text('1 week before')),
+                  ],
+                  onChanged: (v) => store.setReminders(days: v),
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.payments_outlined),
               title: const Text('Pay date'),

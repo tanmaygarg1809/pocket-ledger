@@ -89,11 +89,35 @@ class AppStore extends ChangeNotifier {
   static const _kWealth = 'wealth_v1';
   static const _kGoals = 'goals_v1';
   static const _kPay = 'pay_v1';
+  static const _kLock = 'app_lock_v1';
+  static const _kRemind = 'remind_v1';
+  static const _kRemindDays = 'remind_days_v1';
 
   SharedPreferences? _prefs;
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
   final List<Goal> _goals = [];
+
+  /// Local to this phone (not synced): ask for fingerprint / screen lock on open.
+  bool appLock = false;
+
+  /// Local to this phone: notify before recurring bills fall due.
+  bool remindOn = false;
+  int remindDays = 1;
+
+  Future<void> setAppLock(bool v) async {
+    appLock = v;
+    await _prefs?.setBool(_kLock, v);
+    notifyListeners();
+  }
+
+  Future<void> setReminders({bool? on, int? days}) async {
+    if (on != null) remindOn = on;
+    if (days != null) remindDays = days;
+    await _prefs?.setBool(_kRemind, remindOn);
+    await _prefs?.setInt(_kRemindDays, remindDays);
+    notifyListeners();
+  }
 
   /// Salary day of the month (moved back to Friday if it lands on a weekend).
   int payDay = 25;
@@ -296,6 +320,9 @@ class AppStore extends ChangeNotifier {
         if (list.isNotEmpty) _cats = list;
       } catch (_) {}
     }
+    appLock = p.getBool(_kLock) ?? false;
+    remindOn = p.getBool(_kRemind) ?? false;
+    remindDays = p.getInt(_kRemindDays) ?? 1;
     payDay = 25;
     payManualMonths = {12};
     payOverrides.clear();
