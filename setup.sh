@@ -47,6 +47,46 @@ for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
         open(g, 'w').write(t2)
 PY
 
+# Newer plugins (e.g. flutter_plugin_android_lifecycle) need compileSdk 36; force it for every Android library + the app.
+python3 - <<'PY'
+import os
+KTS = """subprojects {
+    if (project.name != "app") {
+        afterEvaluate {
+            val ext = project.extensions.findByName("android")
+            if (ext is com.android.build.gradle.BaseExtension) {
+                ext.compileSdkVersion(36)
+            }
+        }
+    }
+}
+
+"""
+GROOVY = """subprojects {
+    if (project.name != 'app') {
+        afterEvaluate { p ->
+            if (p.hasProperty('android')) {
+                p.android.compileSdkVersion 36
+            }
+        }
+    }
+}
+
+"""
+for f, block in (('android/build.gradle.kts', KTS), ('android/build.gradle', GROOVY)):
+    if os.path.exists(f):
+        t = open(f).read()
+        if 'compileSdkVersion(36)' not in t and 'compileSdkVersion 36' not in t:
+            open(f, 'w').write(block + t)
+for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
+    if os.path.exists(g):
+        t = open(g).read()
+        t = t.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+        t = t.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+        t = t.replace('compileSdk flutter.compileSdkVersion', 'compileSdk 36')
+        open(g, 'w').write(t)
+PY
+
 flutter pub add firebase_core firebase_auth cloud_firestore
 flutter pub get
 flutter analyze || echo "WARNING: analyze reported issues (continuing)"
