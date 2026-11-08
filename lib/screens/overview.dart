@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models.dart';
 import 'drill.dart';
 import 'goals.dart';
+import 'payday.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -34,6 +35,7 @@ class OverviewScreen extends StatelessWidget {
           children: [
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
+            _PayCard(store: store),
             _GoalsCard(store: store),
             if (store.weekView)
               ..._weekChildren(context, store)
@@ -270,8 +272,12 @@ class _BudgetProgressCard extends StatelessWidget {
                               Text(r.$1),
                               const Spacer(),
                               Text(
-                                '${store.money(r.$2!.spent)} of ${store.money(r.$2!.limit)}',
-                                style: Theme.of(context).textTheme.bodySmall,
+                                r.$2!.over
+                                    ? 'Over by ${store.money(r.$2!.spent - r.$2!.limit)}'
+                                    : '${store.money(r.$2!.limit - r.$2!.spent)} left of ${store.money(r.$2!.limit)}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: r.$2!.over ? scheme.error : Colors.green.shade800,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
@@ -690,6 +696,46 @@ class _GoalsCard extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => GoalsScreen(store: store))),
+      ),
+    );
+  }
+}
+
+class _PayCard extends StatelessWidget {
+  final AppStore store;
+  const _PayCard({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final (next, needs) = store.nextPay;
+    final last = store.lastPay;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final f = DateFormat('EEE d MMM');
+    String title;
+    if (next != null) {
+      final days = next.difference(today).inDays;
+      title = days == 0
+          ? 'Payday is today'
+          : 'Next pay ${f.format(next)} · in $days day${days == 1 ? '' : 's'}';
+    } else if (needs != null) {
+      title = 'Set the pay date for ${DateFormat('MMMM').format(needs)}';
+    } else {
+      title = 'Set your pay date';
+    }
+    final since = last == null
+        ? null
+        : store.spentBetween(last, DateTime(now.year, now.month, now.day + 1));
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.payments_outlined),
+        title: Text(title),
+        subtitle: since == null
+            ? null
+            : Text('Spent since last pay (${f.format(last!)}): ${store.money(since)}'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => PaydayScreen(store: store))),
       ),
     );
   }

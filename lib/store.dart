@@ -88,11 +88,22 @@ class AppStore extends ChangeNotifier {
   static const _kTheme = 'theme_v1';
   static const _kWealth = 'wealth_v1';
   static const _kGoals = 'goals_v1';
+  static const _kPay = 'pay_v1';
 
   SharedPreferences? _prefs;
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
   final List<Goal> _goals = [];
+
+  /// Salary day of the month (moved back to Friday if it lands on a weekend).
+  int payDay = 25;
+
+  /// Months whose pay date is not predictable (e.g. December), so you set
+  /// them yourself. Month numbers 1..12.
+  Set<int> payManualMonths = {12};
+
+  /// 'yyyy-MM' -> 'yyyy-MM-dd': a date you chose for that month.
+  final Map<String, String> payOverrides = {};
   final List<RecurringRule> _rules = [];
   List<Category> _cats = defaultCategories();
   final Wealth wealth = Wealth(); // net worth: accounts + policies
@@ -119,6 +130,83 @@ class AppStore extends ChangeNotifier {
   // ------------------------------------------------------------ reading
   List<Txn> get all => _txns.where((t) => !t.deleted).toList(growable: false);
   List<RecurringRule> get rules => List.unmodifiable(_rules);
+
+  // ------------------------------------------------------------ pay date
+  Map<String, dynamic> _payJson() =>
+      {'day': payDay, 'manual': payManualMonths.toList(), 'ov': payOverrides};
+
+  void _applyPay(Map<String, dynamic> j) {
+    payDay = ((j['day'] as num?)?.toInt() ?? 25).clamp(1, 31).toInt();
+    payManualMonths = ((j['manual'] as List?) ?? const [12]).map((e) => (e as num).toInt()).toSet();
+    payOverrides
+      ..clear()
+      ..addAll(((j['ov'] as Map?) ?? const {}).map((k, v) => MapEntry(k as String, v as String)));
+  }
+
+  Future<void> setPay({int? day, Set<int>? manualMonths}) {
+    if (day != null) payDay = day.clamp(1, 31).toInt();
+    if (manualMonths != null) payManualMonths = manualMonths;
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> setPayOverride(int year, int month, DateTime? date) {
+    final k = '$year-${month.toString().padLeft(2, '0')}';
+    if (date == null) {
+      payOverrides.remove(k);
+    } else {
+      payOverrides[k] = DateFormat('yyyy-MM-dd').format(date);
+    }
+    _touchSettings();
+    return _changed();
+  }
+
+  bool hasPayOverride(int year, int month) =>
+      payOverrides.containsKey('$year-${month.toString().padLeft(2, '0')}');
+
+  /// Pay date for a month: your own date if set, else the pay day moved back
+  /// to the last working day (Mon-Fri) when it falls on a weekend. Null for
+  /// months you said are unpredictable until you set them.
+  DateTime? payDateFor(int year, int month) {
+    final o = payOverrides['$year-${month.toString().padLeft(2, '0')}'];
+    if (o != null) {
+      final d = DateTime.tryParse(o);
+      if (d != null) return DateTime(d.year, d.month, d.day);
+    }
+    if (payManualMonths.contains(month)) return null;
+    final last = DateTime(year, month + 1, 0).day;
+    var d = DateTime(year, month, payDay > last ? last : payDay);
+    while (d.weekday > 5) {
+      d = DateTime(d.year, d.month, d.day - 1);
+    }
+    return d;
+  }
+
+  /// Next pay date today or later; [needsDate] is the month that still needs
+  /// a date when the next one is unknown.
+  (DateTime?, DateTime?) get nextPay {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    for (var i = 0; i < 14; i++) {
+      final m = DateTime(now.year, now.month + i);
+      final d = payDateFor(m.year, m.month);
+      if (d == null) return (null, m);
+      if (!d.isBefore(today)) return (d, null);
+    }
+    return (null, null);
+  }
+
+  /// Most recent pay date before or on today.
+  DateTime? get lastPay {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    for (var i = 0; i < 14; i++) {
+      final m = DateTime(now.year, now.month - i);
+      final d = payDateFor(m.year, m.month);
+      if (d != null && !d.isAfter(today)) return d;
+    }
+    return null;
+  }
 
   // ------------------------------------------------------------ savings goals
   List<Goal> get goals => List.unmodifiable(_goals);
@@ -208,6 +296,15 @@ class AppStore extends ChangeNotifier {
         if (list.isNotEmpty) _cats = list;
       } catch (_) {}
     }
+    payDay = 25;
+    payManualMonths = {12};
+    payOverrides.clear();
+    final pj = p.getString(_kPay);
+    if (pj != null) {
+      try {
+        _applyPay(Map<String, dynamic>.from(jsonDecode(pj) as Map));
+      } catch (_) {}
+    }
     _goals.clear();
     final gj = p.getString(_kGoals);
     if (gj != null) {
@@ -253,6 +350,7 @@ class AppStore extends ChangeNotifier {
     await p.setString(_kTheme, themeMode);
     await p.setString(_kWealth, jsonEncode(wealth.toJson()));
     await p.setString(_kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
+    await p.setString(_kPay, jsonEncode(_payJson()));
     await p.setString(_kDirty, jsonEncode(_dirty.toList()));
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
@@ -1166,6 +1264,7 @@ class AppStore extends ChangeNotifier {
         'categories': _cats.map((e) => e.toJson()).toList(),
         'wealth': wealth.toJson(),
         'goals': _goals.map((e) => e.toJson()).toList(),
+        'pay': _payJson(),
         'u': _settingsU,
       };
 
@@ -1195,6 +1294,9 @@ class AppStore extends ChangeNotifier {
           ..clear()
           ..addAll((j['budgets'] as Map)
               .map((k, v) => MapEntry(k as String, (v as num).toDouble())));
+      }
+      if (j['pay'] is Map) {
+        _applyPay(Map<String, dynamic>.from(j['pay'] as Map));
       }
       if (j['goals'] != null) {
         _goals

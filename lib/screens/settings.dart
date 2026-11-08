@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../cloud.dart';
 import '../excel_backup.dart';
 import 'goals.dart';
+import 'payday.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import 'auth.dart';
@@ -253,6 +254,13 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.payments_outlined),
+              title: const Text('Pay date'),
+              subtitle: Text('Day ${store.payDay}, or the Friday before a weekend'),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => PaydayScreen(store: store))),
+            ),
             ListTile(
               leading: const Icon(Icons.emoji_events_outlined),
               title: const Text('Savings goals'),

@@ -185,9 +185,14 @@ class BudgetsScreen extends StatelessWidget {
                     color: over ? Colors.red.shade600 : null,
                   ),
                   const SizedBox(height: 4),
-                  Text(over
-                      ? 'Over by ${store.money(spent - limit)}'
-                      : '${store.money(spent)} of ${store.money(limit)}'),
+                  Text(
+                    over
+                        ? 'Over by ${store.money(spent - limit)} · ${store.money(spent)} of ${store.money(limit)}'
+                        : '${store.money(limit - spent)} left to spend · ${store.money(spent)} of ${store.money(limit)}',
+                    style: TextStyle(
+                        color: over ? Colors.red.shade700 : Colors.green.shade800,
+                        fontWeight: FontWeight.w500),
+                  ),
                 ],
               ),
       ),
