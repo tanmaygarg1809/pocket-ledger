@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Category;
 import 'package:intl/intl.dart';
 
+import '../attachments.dart';
 import '../models.dart';
 import '../store.dart';
 import 'category_picker.dart';
@@ -27,6 +28,10 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
   TextEditingController? _payeeCtrl; // owned by the Autocomplete field
   bool _repeat = false;
   bool _splitwise = false;
+  late List<String> _files;
+  final List<String> _removedFiles = [];
+  final List<String> _addedFiles = [];
+  bool _saved = false;
   bool _categoryTouched = false;
 
   TxType get _type => _mode == 1 ? TxType.income : TxType.expense;
@@ -49,10 +54,17 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
         text: e == null ? '' : e.amount.abs().toStringAsFixed(2));
     _note = TextEditingController(text: e?.note ?? '');
     _splitwise = (e?.split ?? 0) > 0;
+    _files = List<String>.from(e?.files ?? const []);
   }
 
   @override
   void dispose() {
+    // Left without saving: drop files that were attached just now.
+    if (!_saved) {
+      for (final f in _addedFiles) {
+        Attachments.delete(f);
+      }
+    }
     _amount.dispose();
     _note.dispose();
     super.dispose();
@@ -88,10 +100,15 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
       payee: payee,
       note: _note.text.trim(),
       date: _date,
+      files: _files,
       split: (_splitwise && _mode == 0)
           ? ((widget.existing?.split ?? 0) == 2 ? 2 : 1)
           : 0,
     ));
+    _saved = true;
+    for (final f in _removedFiles) {
+      Attachments.delete(f);
+    }
     if (_repeat && !_editing && _mode != 2) {
       // Start next month: this month's entry was just added by hand.
       final next = DateTime(_date.year, _date.month + 1);
@@ -108,12 +125,53 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this entry?'),
+        content: const Text('It will be removed from this phone and from your synced devices.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final t = widget.existing!;
+    await widget.store.remove(t.id);
+    for (final f in t.files) {
+      Attachments.delete(f);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _addFiles() async {
+    final names = await Attachments.pick();
+    if (names.isEmpty || !mounted) return;
+    setState(() {
+      _files.addAll(names);
+      _addedFiles.addAll(names);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
     final last = _editing || _mode == 2 ? null : store.lastTxn(_type);
     return Scaffold(
-      appBar: AppBar(title: Text(_editing ? 'Edit transaction' : 'New transaction')),
+      appBar: AppBar(
+        title: Text(_editing ? 'Edit transaction' : 'New transaction'),
+        actions: [
+          if (_editing)
+            IconButton(
+              tooltip: 'Delete',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _confirmDelete,
+            ),
+        ],
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -233,6 +291,44 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
               title: Text(DateFormat('EEE, d MMM yyyy').format(_date)),
               trailing: const Icon(Icons.edit_calendar),
               onTap: _pickDate,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('Receipts & documents', style: Theme.of(context).textTheme.labelLarge),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _addFiles,
+                  icon: const Icon(Icons.attach_file),
+                  label: const Text('Attach'),
+                ),
+              ],
+            ),
+            if (_files.isEmpty)
+              Text('Add a receipt photo, warranty or PDF to keep with this entry.',
+                  style: Theme.of(context).textTheme.bodySmall),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final f in _files)
+                  InputChip(
+                    avatar: Icon(Attachments.isImage(f) ? Icons.image_outlined : Icons.description_outlined, size: 18),
+                    label: SizedBox(
+                      width: 120,
+                      child: Text(Attachments.label(f), overflow: TextOverflow.ellipsis),
+                    ),
+                    onPressed: () => Attachments.open(context, f),
+                    onDeleted: () => setState(() {
+                      _files.remove(f);
+                      if (_addedFiles.contains(f)) {
+                        _addedFiles.remove(f);
+                        Attachments.delete(f);
+                      } else {
+                        _removedFiles.add(f);
+                      }
+                    }),
+                  ),
+              ],
             ),
             if (_mode == 0)
               SwitchListTile(

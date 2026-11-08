@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../cloud.dart';
 import '../excel_backup.dart';
+import 'goals.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import 'auth.dart';
@@ -252,6 +253,13 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.emoji_events_outlined),
+              title: const Text('Savings goals'),
+              subtitle: Text('${store.goals.length} goal${store.goals.length == 1 ? '' : 's'} · ${store.badges.where((b) => b.$3).length} badges'),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => GoalsScreen(store: store))),
+            ),
             ListTile(
               leading: const Icon(Icons.call_split),
               title: const Text('Splitwise'),

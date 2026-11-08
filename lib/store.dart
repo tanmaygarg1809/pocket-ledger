@@ -87,10 +87,12 @@ class AppStore extends ChangeNotifier {
   static const _kSettingsDirty = 'settings_dirty_v1';
   static const _kTheme = 'theme_v1';
   static const _kWealth = 'wealth_v1';
+  static const _kGoals = 'goals_v1';
 
   SharedPreferences? _prefs;
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
+  final List<Goal> _goals = [];
   final List<RecurringRule> _rules = [];
   List<Category> _cats = defaultCategories();
   final Wealth wealth = Wealth(); // net worth: accounts + policies
@@ -117,6 +119,50 @@ class AppStore extends ChangeNotifier {
   // ------------------------------------------------------------ reading
   List<Txn> get all => _txns.where((t) => !t.deleted).toList(growable: false);
   List<RecurringRule> get rules => List.unmodifiable(_rules);
+
+  // ------------------------------------------------------------ savings goals
+  List<Goal> get goals => List.unmodifiable(_goals);
+
+  Future<void> saveGoal(Goal g) {
+    final i = _goals.indexWhere((e) => e.id == g.id);
+    if (i >= 0) {
+      _goals[i] = g;
+    } else {
+      _goals.add(g);
+    }
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> removeGoal(String id) {
+    _goals.removeWhere((e) => e.id == id);
+    _touchSettings();
+    return _changed();
+  }
+
+  /// Puts [amount] towards a goal (negative takes money back out).
+  Future<void> addToGoal(String id, double amount) {
+    final i = _goals.indexWhere((e) => e.id == id);
+    if (i < 0) return Future.value();
+    final v = _goals[i].saved + amount;
+    return saveGoal(_goals[i].copyWith(saved: v < 0 ? 0 : v));
+  }
+
+  /// Badges earned across all goals: (title, description).
+  List<(String, String, bool)> get badges {
+    final total = _goals.fold(0.0, (a, g) => a + g.saved);
+    final reached = _goals.where((g) => g.reached).length;
+    final half = _goals.any((g) => g.fraction >= 0.5);
+    return [
+      ('First goal', 'Create a savings goal', _goals.isNotEmpty),
+      ('Getting started', 'Save your first £100', total >= 100),
+      ('Halfway there', 'Get any goal to 50%', half),
+      ('Goal reached', 'Fully fund a goal', reached >= 1),
+      ('£1,000 club', 'Save £1,000 across goals', total >= 1000),
+      ('Triple', 'Reach 3 goals', reached >= 3),
+      ('£5,000 club', 'Save £5,000 across goals', total >= 5000),
+    ];
+  }
 
   // ------------------------------------------------------------ loading
   Future<void> load() async {
@@ -162,6 +208,14 @@ class AppStore extends ChangeNotifier {
         if (list.isNotEmpty) _cats = list;
       } catch (_) {}
     }
+    _goals.clear();
+    final gj = p.getString(_kGoals);
+    if (gj != null) {
+      try {
+        _goals.addAll((jsonDecode(gj) as List)
+            .map((e) => Goal.fromJson(Map<String, dynamic>.from(e as Map))));
+      } catch (_) {}
+    }
     wealth.clear();
     final w = p.getString(_kWealth);
     if (w != null) {
@@ -198,6 +252,7 @@ class AppStore extends ChangeNotifier {
     await p.setString(_kCurrency, currency);
     await p.setString(_kTheme, themeMode);
     await p.setString(_kWealth, jsonEncode(wealth.toJson()));
+    await p.setString(_kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
     await p.setString(_kDirty, jsonEncode(_dirty.toList()));
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
@@ -1031,6 +1086,7 @@ class AppStore extends ChangeNotifier {
     }
     _budgets.clear();
     _rules.clear();
+    _goals.clear();
     for (final a in wealth.listed) {
       wealth.upsertAccount(a.copyWith(deleted: true, updatedAt: _now));
     }
@@ -1048,6 +1104,7 @@ class AppStore extends ChangeNotifier {
     _txns.clear();
     _budgets.clear();
     _rules.clear();
+    _goals.clear();
     _cats = defaultCategories();
     wealth.clear();
     _dirty.clear();
@@ -1108,6 +1165,7 @@ class AppStore extends ChangeNotifier {
         'recurring': _rules.map((e) => e.toJson()).toList(),
         'categories': _cats.map((e) => e.toJson()).toList(),
         'wealth': wealth.toJson(),
+        'goals': _goals.map((e) => e.toJson()).toList(),
         'u': _settingsU,
       };
 
@@ -1137,6 +1195,12 @@ class AppStore extends ChangeNotifier {
           ..clear()
           ..addAll((j['budgets'] as Map)
               .map((k, v) => MapEntry(k as String, (v as num).toDouble())));
+      }
+      if (j['goals'] != null) {
+        _goals
+          ..clear()
+          ..addAll((j['goals'] as List)
+              .map((e) => Goal.fromJson(Map<String, dynamic>.from(e as Map))));
       }
       if (j['recurring'] != null) {
         _rules

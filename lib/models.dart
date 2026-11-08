@@ -118,6 +118,9 @@ class Txn {
   /// Splitwise follow-up: 0 = none, 1 = still to split, 2 = done.
   final int split;
 
+  /// Attached receipts/documents (file names inside the app's attachments folder).
+  final List<String> files;
+
   const Txn({
     required this.id,
     required this.type,
@@ -129,9 +132,10 @@ class Txn {
     this.updatedAt = 0,
     this.deleted = false,
     this.split = 0,
+    this.files = const [],
   });
 
-  Txn copyWith({int? updatedAt, bool? deleted, String? category, int? split}) => Txn(
+  Txn copyWith({int? updatedAt, bool? deleted, String? category, int? split, List<String>? files}) => Txn(
         id: id,
         type: type,
         amount: amount,
@@ -142,6 +146,7 @@ class Txn {
         updatedAt: updatedAt ?? this.updatedAt,
         deleted: deleted ?? this.deleted,
         split: split ?? this.split,
+        files: files ?? this.files,
       );
 
   Map<String, dynamic> toJson() => {
@@ -155,6 +160,7 @@ class Txn {
         'u': updatedAt,
         'd': deleted,
         's': split,
+        'f': files,
       };
 
   factory Txn.fromJson(Map<String, dynamic> j) => Txn(
@@ -168,6 +174,7 @@ class Txn {
         updatedAt: (j['u'] as num?)?.toInt() ?? 0,
         deleted: j['d'] == true,
         split: (j['s'] as num?)?.toInt() ?? 0,
+        files: ((j['f'] as List?) ?? const []).map((e) => e.toString()).toList(),
       );
 }
 
@@ -228,5 +235,60 @@ class RecurringRule {
         day: ((j['day'] as num?)?.toInt() ?? 1).clamp(1, 28),
         startMonth: j['startMonth'] as String,
         active: j['active'] != false,
+      );
+}
+
+/// A savings goal. [saved] is what you have put towards it so far.
+class Goal {
+  final String id;
+  final String name;
+  final double target;
+  final double saved;
+  final DateTime? deadline;
+  final int icon; // index into categoryIcons
+
+  const Goal({
+    required this.id,
+    required this.name,
+    required this.target,
+    this.saved = 0,
+    this.deadline,
+    this.icon = 14,
+  });
+
+  double get fraction => target <= 0 ? 0 : (saved / target).clamp(0.0, 1.0).toDouble();
+  bool get reached => target > 0 && saved >= target;
+
+  /// Milestones passed: 25, 50, 75, 100 (percent).
+  List<int> get milestones => [
+        for (final p in const [25, 50, 75, 100])
+          if (target > 0 && saved * 100 >= target * p) p
+      ];
+
+  Goal copyWith({String? name, double? target, double? saved, DateTime? deadline, bool clearDeadline = false, int? icon}) => Goal(
+        id: id,
+        name: name ?? this.name,
+        target: target ?? this.target,
+        saved: saved ?? this.saved,
+        deadline: clearDeadline ? null : (deadline ?? this.deadline),
+        icon: icon ?? this.icon,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'target': target,
+        'saved': saved,
+        'deadline': deadline?.toIso8601String(),
+        'icon': icon,
+      };
+
+  factory Goal.fromJson(Map<String, dynamic> j) => Goal(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        target: (j['target'] as num).toDouble(),
+        saved: (j['saved'] as num?)?.toDouble() ?? 0,
+        deadline: j['deadline'] == null ? null : DateTime.tryParse(j['deadline'] as String),
+        icon: (j['icon'] as num?)?.toInt() ?? 14,
       );
 }

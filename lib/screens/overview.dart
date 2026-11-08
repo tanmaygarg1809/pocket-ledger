@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models.dart';
+import 'drill.dart';
+import 'goals.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -32,6 +34,7 @@ class OverviewScreen extends StatelessWidget {
           children: [
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
+            _GoalsCard(store: store),
             if (store.weekView)
               ..._weekChildren(context, store)
             else ...[
@@ -161,6 +164,20 @@ class OverviewScreen extends StatelessWidget {
                   subtitle: Text(
                       '${(e.value / total * 100).toStringAsFixed(0)}% of spending'),
                   trailing: Text(store.money(e.value)),
+                  onTap: () {
+                    final m = store.month;
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => DrillScreen(
+                              store: store,
+                              title: e.key,
+                              subtitle: DateFormat('MMMM yyyy').format(m),
+                              test: (t) =>
+                                  t.type == TxType.expense &&
+                                  t.category == e.key &&
+                                  t.date.year == m.year &&
+                                  t.date.month == m.month,
+                            )));
+                  },
                 ),
             ],
             ],
@@ -623,6 +640,57 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
         subtitle: Text(
             '${(e.value / (shownTotal <= 0 ? 1 : shownTotal) * 100).toStringAsFixed(0)}% of $shownLabel'),
         trailing: Text(store.money(e.value)),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => DrillScreen(
+                  store: store,
+                  title: e.key,
+                  subtitle: sel == null
+                      ? '${DateFormat('d MMM').format(selStart)} – ${DateFormat('d MMM').format(selEnd.subtract(const Duration(days: 1)))}'
+                      : DateFormat('EEE d MMM').format(selStart),
+                  test: (t) =>
+                      t.type == TxType.expense &&
+                      !store.isSaving(t.category) &&
+                      !t.date.isBefore(selStart) &&
+                      t.date.isBefore(selEnd) &&
+                      (store.byMerchant
+                          ? (e.key == 'No merchant'
+                              ? t.payee.trim().isEmpty
+                              : t.payee.trim() == e.key)
+                          : t.category == e.key),
+                ))),
       ),
   ];
+}
+
+class _GoalsCard extends StatelessWidget {
+  final AppStore store;
+  const _GoalsCard({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final goals = store.goals;
+    final open = goals.where((g) => !g.reached).toList()
+      ..sort((a, b) => b.fraction.compareTo(a.fraction));
+    final top = open.isNotEmpty ? open.first : (goals.isNotEmpty ? goals.first : null);
+    final earned = store.badges.where((b) => b.$3).length;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.emoji_events_outlined),
+        title: Text(top == null ? 'Set a savings goal' : top.name),
+        subtitle: top == null
+            ? const Text('Earn badges as you save')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${store.money(top.saved)} of ${store.money(top.target)} · $earned badges'),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(value: top.fraction, minHeight: 6),
+                ],
+              ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => GoalsScreen(store: store))),
+      ),
+    );
+  }
 }
