@@ -7,14 +7,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
 import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.Calendar
 import java.util.Locale
 
-/** Home-screen widget: shows today's spending, tap anywhere to quick-add. */
+/** Home-screen widget: spent today, spent this week, and a + to quick-add. */
 class QuickAddWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -30,83 +29,63 @@ class QuickAddWidget : AppWidgetProvider() {
 
         private fun update(context: Context, manager: AppWidgetManager, id: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_quick_add)
-            val (label, value) = headline(context)
-            views.setTextViewText(R.id.widget_label, label)
-            views.setTextViewText(R.id.widget_total, value)
-
-            // Tap the + (or the headline) for a blank popup.
-            val blank = pending(context, 0, null)
-            views.setOnClickPendingIntent(R.id.widget_root, blank)
-            views.setOnClickPendingIntent(R.id.widget_add, blank)
-
-            // One-tap category buttons open the popup with that category picked.
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            views.setTextViewText(R.id.widget_week, prefs.getString("flutter.widget_week", "") ?: "")
-            val cats = categories(prefs)
-            val buttons = intArrayOf(R.id.widget_cat1, R.id.widget_cat2, R.id.widget_cat3)
-            for (i in buttons.indices) {
-                if (i < cats.size) {
-                    views.setViewVisibility(buttons[i], View.VISIBLE)
-                    views.setTextViewText(buttons[i], cats[i])
-                    views.setOnClickPendingIntent(buttons[i], pending(context, 10 + i, cats[i]))
-                } else {
-                    views.setViewVisibility(buttons[i], View.GONE)
-                }
-            }
+            val currency = prefs.getString("flutter.currency_v1", "£") ?: "£"
+            val (today, week) = totals(prefs)
+            views.setTextViewText(R.id.widget_total, money(currency, today))
+            views.setTextViewText(R.id.widget_label, "today")
+            views.setTextViewText(R.id.widget_week, "This week " + money(currency, week))
+
+            val intent = Intent(context, QuickAddActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            val pending = PendingIntent.getActivity(
+                context, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_root, pending)
+            views.setOnClickPendingIntent(R.id.widget_add, pending)
             manager.updateAppWidget(id, views)
         }
 
-        private fun pending(context: Context, code: Int, category: String?): PendingIntent {
-            val intent = Intent(context, QuickAddActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            if (category != null) intent.putExtra("category", category)
-            return PendingIntent.getActivity(
-                context, code, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-        }
+        private fun money(currency: String, v: Double): String =
+            currency + String.format(Locale.getDefault(), "%,.2f", v)
 
-        private fun categories(prefs: SharedPreferences): List<String> {
-            val out = ArrayList<String>()
+        /** Spending today and since Monday, from the same data the app saves.
+         *  Money moved to savings is not counted. */
+        private fun totals(prefs: SharedPreferences): Pair<Double, Double> {
+            val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val now = Calendar.getInstance()
+            val today = fmt.format(now.time)
+            val monday = Calendar.getInstance()
+            // Calendar: Sunday = 1 ... Saturday = 7. Days since Monday:
+            val sinceMonday = (monday.get(Calendar.DAY_OF_WEEK) + 5) % 7
+            monday.add(Calendar.DAY_OF_MONTH, -sinceMonday)
+            val weekStart = fmt.format(monday.time)
+
+            val saving = HashSet<String>()
             try {
-                val arr = JSONArray(prefs.getString("flutter.widget_cats", "[]") ?: "[]")
-                for (i in 0 until minOf(arr.length(), 3)) out.add(arr.getString(i))
+                val a = JSONArray(prefs.getString("flutter.widget_saving", "[]") ?: "[]")
+                for (i in 0 until a.length()) saving.add(a.getString(i))
             } catch (_: Exception) {
             }
-            return out
-        }
 
-        private fun headline(context: Context): Pair<String, String> {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            // The app saves "Left today" (from your budgets) with today's date.
-            // If it is stale (a new day) or there are no budgets, show spending.
-            if (prefs.getString("flutter.widget_date", null) == today) {
-                val label = prefs.getString("flutter.widget_label", null)
-                val value = prefs.getString("flutter.widget_value", null)
-                if (label != null && value != null) return Pair(label, value)
-            }
-            return Pair("Spent today", todayTotal(prefs, today))
-        }
-
-        // Reads the same SharedPreferences file the Flutter app writes to.
-        private fun todayTotal(prefs: SharedPreferences, today: String): String {
-            val currency = prefs.getString("flutter.currency_v1", "£") ?: "£"
-            var total = 0.0
+            var t = 0.0
+            var w = 0.0
             try {
                 val arr = JSONArray(prefs.getString("flutter.txns_v1", "[]") ?: "[]")
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
-                    if (!o.optBoolean("d", false) &&
-                        o.optString("type") == "expense" &&
-                        o.optString("date").startsWith(today)
-                    ) {
-                        total += o.optDouble("amount", 0.0)
-                    }
+                    if (o.optBoolean("d", false)) continue
+                    if (o.optString("type") != "expense") continue
+                    if (saving.contains(o.optString("category"))) continue
+                    val day = o.optString("date").take(10)
+                    val amount = o.optDouble("amount", 0.0)
+                    if (day == today) t += amount
+                    if (day >= weekStart && day <= today) w += amount
                 }
             } catch (_: Exception) {
             }
-            return currency + String.format(Locale.getDefault(), "%,.2f", total)
+            return Pair(t, w)
         }
     }
 }

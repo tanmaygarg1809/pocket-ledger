@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocket_ledger/models.dart';
 import 'package:pocket_ledger/store.dart';
+import 'package:pocket_ledger/trends.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<AppStore> fresh() async {
@@ -174,5 +175,24 @@ void main() {
     final n = await s.recategorize(s.needsReview.first, 'Health', allFromPayee: true);
     expect(n, 2);
     expect(s.needsReview, isEmpty);
+  });
+
+  test('trends: lower than last month, savings excluded, week days', () async {
+    final s = await fresh();
+    final n = DateTime.now();
+    final lastMonth = DateTime(n.year, n.month - 1, 1);
+    await s.upsert(tx('p1', 200, 'Food', date: lastMonth));
+    await s.upsert(tx('p2', 900, 'Savings', date: lastMonth)); // saving: ignored
+    await s.upsert(tx('c1', 50, 'Food', date: DateTime(n.year, n.month, 1)));
+    final t = s.monthTrend(DateTime(n.year, n.month));
+    expect(t.before, 200);
+    expect(t.now, 50);
+    expect(t.pct, closeTo(-75, 0.001));
+    expect(s.monthlySpendSeries(DateTime(n.year, n.month)).length, 6);
+
+    final ws = weekStartOf(n);
+    final days = s.daySpend(ws);
+    expect(days.length, 7);
+    expect(weekStartOf(DateTime(2026, 11, 8)), DateTime(2026, 11, 2)); // Sunday -> Monday before
   });
 }

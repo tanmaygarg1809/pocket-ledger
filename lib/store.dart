@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:intl/intl.dart';
@@ -71,6 +70,10 @@ class Pace {
   const Pace(this.perDay, this.monthProjection, this.yearProjection, this.yearBudget);
 }
 
+/// Monday of the week containing [d], at midnight.
+DateTime weekStartOf(DateTime d) =>
+    DateTime(d.year, d.month, d.day - (d.weekday - 1));
+
 /// App state. Local-first: everything is saved on the device; if the user
 /// signs in, CloudService syncs changes to their account.
 class AppStore extends ChangeNotifier {
@@ -103,6 +106,8 @@ class AppStore extends ChangeNotifier {
   String themeMode = 'light';
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   int year = DateTime.now().year; // for the Year tab
+  bool weekView = false; // Overview: week instead of month
+  DateTime weekAnchor = weekStartOf(DateTime.now());
 
   /// Set by CloudService: called after a change made on this device.
   VoidCallback? onLocalChange;
@@ -195,39 +200,10 @@ class AppStore extends ChangeNotifier {
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
 
-    // Values for the home-screen widget (read natively by Android).
-    final s = safeToSpend;
-    if (s != null) {
-      await p.setString('widget_label', s.overBudget ? 'Over budget' : 'Left today');
-      await p.setString(
-          'widget_value',
-          money(s.overBudget ? -s.remainingMonth : math.max(s.leftToday, 0.0)));
-      await p.setString('widget_date', DateFormat('yyyy-MM-dd').format(DateTime.now()));
-    } else {
-      await p.remove('widget_date');
-    }
-    // This week's spending, and your three most-used categories for the
-    // one-tap buttons on the widget.
-    final now = DateTime.now();
-    final weekStart =
-        DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
-    final cutoff = now.subtract(const Duration(days: 60));
-    var week = 0.0;
-    final counts = <String, int>{};
-    for (final t in _txns) {
-      if (t.deleted || t.type != TxType.expense || isSaving(t.category)) continue;
-      if (!t.date.isBefore(weekStart)) week += t.amount;
-      if (t.date.isAfter(cutoff)) counts[t.category] = (counts[t.category] ?? 0) + 1;
-    }
-    final names = counts.keys.toList()
-      ..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
-    final top = names.take(3).toList();
-    for (final c in categoriesFor(TxType.expense)) {
-      if (top.length >= 3) break;
-      if (!top.contains(c.name)) top.add(c.name);
-    }
-    await p.setString('widget_cats', jsonEncode(top));
-    await p.setString('widget_week', 'This week ${money(week)}');
+    // For the home-screen widget (read natively by Android): which
+    // categories are saving, so "today" and "this week" show spending only.
+    await p.setString('widget_saving',
+        jsonEncode(_cats.where((c) => c.saving).map((c) => c.name).toList()));
   }
 
   /// Save + notify + refresh the widget, without triggering a cloud sync.
@@ -275,6 +251,19 @@ class AppStore extends ChangeNotifier {
     _touchSettings();
     return _changed();
   }
+
+  void setWeekView(bool v) {
+    weekView = v;
+    notifyListeners();
+  }
+
+  void shiftWeek(int d) {
+    weekAnchor = DateTime(weekAnchor.year, weekAnchor.month, weekAnchor.day + 7 * d);
+    notifyListeners();
+  }
+
+  bool get canWeekNext => !DateTime(weekAnchor.year, weekAnchor.month, weekAnchor.day + 7)
+      .isAfter(DateTime.now());
 
   Future<void> setThemeMode(String m) async {
     themeMode = m;

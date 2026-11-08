@@ -2,7 +2,7 @@
 <resources>
     <string name="widget_spent_today">Spent today</string>
     <string name="widget_add_desc">Add expense</string>
-    <string name="widget_description">See today\'s spending and add an expense in seconds.</string>
+    <string name="widget_description">See today and this week at a glance, and add an expense in one tap.</string>
     <string name="shortcut_short">Add expense</string>
     <string name="shortcut_long">Quick add expense</string>
 
