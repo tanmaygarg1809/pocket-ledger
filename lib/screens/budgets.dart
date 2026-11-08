@@ -1,9 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart' hide Category;
+import 'package:intl/intl.dart';
 
 import '../budget_tips.dart';
 import '../models.dart';
 import '../store.dart';
+import 'drill.dart';
 import 'month_bar.dart';
 import 'year.dart';
 
@@ -96,7 +98,7 @@ class BudgetsScreen extends StatelessWidget {
             else
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('Tap a category to set a limit for this period.'),
+                child: Text('Tap a category to see its entries, or the pencil to set a limit.'),
               ),
             if (limits.isNotEmpty) ...[
               _SectionTitle(
@@ -106,6 +108,14 @@ class BudgetsScreen extends StatelessWidget {
                       : 'by month'),
               _SpendChart(store: store, period: period),
             ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.list_alt),
+                label: Text('See every entry for ${_periodLabel()}'),
+                onPressed: () => _drill(context, null),
+              ),
+            ),
             _SectionTitle('How to bring it down', 'tips from your numbers'),
             for (final t in store.tips(period, store.budgetAnchor)) _TipCard(tip: t),
             Padding(
@@ -121,7 +131,7 @@ class BudgetsScreen extends StatelessWidget {
                 )),
               ),
             ),
-            const _SectionTitle('Your categories', 'tap to set a limit'),
+            const _SectionTitle('Your categories', 'tap to see entries, pencil to set a limit'),
             for (final g in store.groupsFor(TxType.expense)) ...[
               _groupHeader(context, g, spent, limits),
               for (final c in store.categoriesFor(TxType.expense)
@@ -165,7 +175,7 @@ class BudgetsScreen extends StatelessWidget {
     final progress =
         limit == null ? 0.0 : (spent / limit).clamp(0.0, 1.0).toDouble();
     return ListTile(
-      onTap: () => _edit(context, c.name),
+      onTap: () => _drill(context, c.name),
       leading: CircleAvatar(
         backgroundColor: c.colorValue,
         child: Icon(c.iconData, color: Colors.white, size: 20),
@@ -196,8 +206,39 @@ class BudgetsScreen extends StatelessWidget {
                 ],
               ),
       ),
-      trailing: const Icon(Icons.edit_outlined, size: 18),
+      trailing: IconButton(
+        tooltip: 'Set limit',
+        icon: const Icon(Icons.edit_outlined, size: 18),
+        onPressed: () => _edit(context, c.name),
+      ),
     );
+  }
+
+  String _periodLabel() {
+    final p = store.budgetPeriod;
+    final a = store.budgetAnchor;
+    if (p == BudgetPeriod.month) return DateFormat('MMMM yyyy').format(a);
+    if (p == BudgetPeriod.quarter) return 'Q${(a.month - 1) ~/ 3 + 1} ${a.year}';
+    return '${a.year}';
+  }
+
+  /// Every entry in this period: for one category, or all spending when [category] is null.
+  void _drill(BuildContext context, String? category) {
+    final p = store.budgetPeriod;
+    final start = AppStore.periodStart(p, store.budgetAnchor);
+    final end = AppStore.periodEnd(p, store.budgetAnchor);
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DrillScreen(
+        store: store,
+        title: category ?? 'All spending',
+        subtitle: _periodLabel(),
+        test: (t) =>
+            t.type == TxType.expense &&
+            (category == null ? !store.isSaving(t.category) : t.category == category) &&
+            !t.date.isBefore(start) &&
+            t.date.isBefore(end),
+      ),
+    ));
   }
 }
 
