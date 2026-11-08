@@ -150,6 +150,68 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
 
   bool _scanning = false;
 
+  /// After a scan: choose which items to remember in the Price book.
+  Future<void> _offerPrices(ReceiptInfo info) async {
+    final shop = TextEditingController(text: info.merchant ?? '');
+    final chosen = List<bool>.filled(info.items.length, true);
+    final go = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Save prices to your Price book?', style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              const Text('So you can see which shop is cheapest next time. Untick any that were read wrongly.'),
+              TextField(
+                controller: shop,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Shop'),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (var i = 0; i < info.items.length; i++)
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: chosen[i],
+                        onChanged: (v) => setS(() => chosen[i] = v ?? false),
+                        title: Text(info.items[i].$1),
+                        secondary: Text(widget.store.money(info.items[i].$2)),
+                      ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
+                  const Spacer(),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save prices')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final name = shop.text.trim();
+    shop.dispose();
+    if (go != true || name.isEmpty) return;
+    final when = info.date ?? DateTime.now();
+    final now = DateTime.now().microsecondsSinceEpoch;
+    await widget.store.addPrices([
+      for (var i = 0; i < info.items.length; i++)
+        if (chosen[i])
+          PricePoint(id: 'p${now}_$i', item: info.items[i].$1, price: info.items[i].$2, shop: name, date: when),
+    ]);
+  }
+
   Future<void> _scan() async {
     setState(() => _scanning = true);
     try {
@@ -172,6 +234,10 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
           _addedFiles.add(saved);
         }
       });
+      if (info.items.isNotEmpty && mounted) {
+        await _offerPrices(info);
+        if (!mounted) return;
+      }
       final found = [
         if (info.total != null) 'amount',
         if (info.merchant != null) 'shop',

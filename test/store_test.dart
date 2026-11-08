@@ -118,7 +118,10 @@ void main() {
     expect(AppStore.periodStart(BudgetPeriod.quarter, DateTime(2026, 11)),
         DateTime(2026, 10));
     await s.setBudget('Food', null, period: BudgetPeriod.quarter);
-    expect(s.budgetsFor(BudgetPeriod.quarter).isEmpty, true);
+    // With no quarterly limit of its own, it follows the monthly one (x3 / x12).
+    expect(s.budgetsFor(BudgetPeriod.quarter)['Food'], 300);
+    await s.setBudget('Food', null, period: BudgetPeriod.year);
+    expect(s.budgetsFor(BudgetPeriod.year)['Food'], 1200);
     expect(s.budgets['Food'], 100); // monthly untouched
   });
 

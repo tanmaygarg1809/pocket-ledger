@@ -14,6 +14,7 @@ import '../app_lock.dart';
 import '../reminders.dart';
 import 'forecast_screen.dart';
 import 'goals.dart';
+import 'price_book.dart';
 import 'payday.dart';
 import 'splitwise.dart';
 import '../store.dart';
@@ -303,6 +304,13 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: (v) => store.setReminders(days: v),
                 ),
               ),
+            ListTile(
+              leading: const Icon(Icons.price_check),
+              title: const Text('Price book'),
+              subtitle: Text('${store.prices.length} price${store.prices.length == 1 ? '' : 's'} saved · find the cheapest shop'),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => PriceBookScreen(store: store))),
+            ),
             ListTile(
               leading: const Icon(Icons.timeline),
               title: const Text('Cash forecast'),

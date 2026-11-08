@@ -292,3 +292,39 @@ class Goal {
         icon: (j['icon'] as num?)?.toInt() ?? 14,
       );
 }
+
+/// One price seen for an item at a shop (from a receipt or typed in).
+class PricePoint {
+  final String id;
+  final String item;
+  final double price;
+  final String shop;
+  final DateTime date;
+
+  const PricePoint({
+    required this.id,
+    required this.item,
+    required this.price,
+    required this.shop,
+    required this.date,
+  });
+
+  /// Same product, whatever the capitalisation or spacing.
+  String get key => item.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'item': item,
+        'price': price,
+        'shop': shop,
+        'date': date.toIso8601String(),
+      };
+
+  factory PricePoint.fromJson(Map<String, dynamic> j) => PricePoint(
+        id: j['id'] as String,
+        item: j['item'] as String,
+        price: (j['price'] as num).toDouble(),
+        shop: (j['shop'] as String?) ?? '',
+        date: DateTime.tryParse((j['date'] as String?) ?? '') ?? DateTime.now(),
+      );
+}

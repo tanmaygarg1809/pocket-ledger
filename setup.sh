@@ -126,6 +126,22 @@ for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
         open(g, 'w').write(t)
 PY
 
+# The text-recognition plugin references optional language classes that R8 cannot find; skip shrinking.
+python3 - <<'PY'
+import os
+for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
+    if not os.path.exists(g):
+        continue
+    t = open(g).read()
+    if 'isMinifyEnabled' in t or 'minifyEnabled' in t:
+        continue
+    if g.endswith('.kts'):
+        t = t.replace('signingConfig = signingConfigs.getByName("release")', 'signingConfig = signingConfigs.getByName("release")\n            isMinifyEnabled = false\n            isShrinkResources = false', 1)
+    else:
+        t = t.replace('signingConfig signingConfigs.release', 'signingConfig signingConfigs.release\n            minifyEnabled false\n            shrinkResources false', 1)
+    open(g, 'w').write(t)
+PY
+
 # Fingerprint lock and bill reminders: need desugaring, AppCompat and an AppCompat launch theme.
 python3 - <<'PY'
 import os, re

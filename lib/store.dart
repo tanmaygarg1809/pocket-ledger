@@ -89,6 +89,7 @@ class AppStore extends ChangeNotifier {
   static const _kWealth = 'wealth_v1';
   static const _kGoals = 'goals_v1';
   static const _kPay = 'pay_v1';
+  static const _kPrices = 'prices_v1';
   static const _kLock = 'app_lock_v1';
   static const _kRemind = 'remind_v1';
   static const _kRemindDays = 'remind_days_v1';
@@ -97,6 +98,27 @@ class AppStore extends ChangeNotifier {
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
   final List<Goal> _goals = [];
+  final List<PricePoint> _prices = [];
+
+  // ------------------------------------------------------------ price book
+  List<PricePoint> get prices => List.unmodifiable(_prices);
+
+  Future<void> addPrices(List<PricePoint> list) {
+    _prices.addAll(list);
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> removePrice(String id) {
+    _prices.removeWhere((p) => p.id == id);
+    _touchSettings();
+    return _changed();
+  }
+
+  List<String> get knownShops {
+    final s = _prices.map((p) => p.shop).where((e) => e.trim().isNotEmpty).toSet().toList()..sort();
+    return s;
+  }
 
   /// Local to this phone (not synced): ask for fingerprint / screen lock on open.
   bool appLock = false;
@@ -332,6 +354,14 @@ class AppStore extends ChangeNotifier {
         _applyPay(Map<String, dynamic>.from(jsonDecode(pj) as Map));
       } catch (_) {}
     }
+    _prices.clear();
+    final prj = p.getString(_kPrices);
+    if (prj != null) {
+      try {
+        _prices.addAll((jsonDecode(prj) as List)
+            .map((e) => PricePoint.fromJson(Map<String, dynamic>.from(e as Map))));
+      } catch (_) {}
+    }
     _goals.clear();
     final gj = p.getString(_kGoals);
     if (gj != null) {
@@ -378,6 +408,7 @@ class AppStore extends ChangeNotifier {
     await p.setString(_kWealth, jsonEncode(wealth.toJson()));
     await p.setString(_kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
     await p.setString(_kPay, jsonEncode(_payJson()));
+    await p.setString(_kPrices, jsonEncode(_prices.map((e) => e.toJson()).toList()));
     await p.setString(_kDirty, jsonEncode(_dirty.toList()));
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
@@ -1253,6 +1284,7 @@ class AppStore extends ChangeNotifier {
     _budgets.clear();
     _rules.clear();
     _goals.clear();
+    _prices.clear();
     _cats = defaultCategories();
     wealth.clear();
     _dirty.clear();
@@ -1315,6 +1347,7 @@ class AppStore extends ChangeNotifier {
         'wealth': wealth.toJson(),
         'goals': _goals.map((e) => e.toJson()).toList(),
         'pay': _payJson(),
+        'prices': _prices.map((e) => e.toJson()).toList(),
         'u': _settingsU,
       };
 
@@ -1344,6 +1377,12 @@ class AppStore extends ChangeNotifier {
           ..clear()
           ..addAll((j['budgets'] as Map)
               .map((k, v) => MapEntry(k as String, (v as num).toDouble())));
+      }
+      if (j['prices'] != null) {
+        _prices
+          ..clear()
+          ..addAll((j['prices'] as List)
+              .map((e) => PricePoint.fromJson(Map<String, dynamic>.from(e as Map))));
       }
       if (j['pay'] is Map) {
         _applyPay(Map<String, dynamic>.from(j['pay'] as Map));

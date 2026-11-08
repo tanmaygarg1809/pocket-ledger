@@ -7,7 +7,39 @@ class ReceiptInfo {
   final double? total;
   final DateTime? date;
   final String? merchant;
-  const ReceiptInfo({this.total, this.date, this.merchant});
+  final List<(String, double)> items;
+  const ReceiptInfo({this.total, this.date, this.merchant, this.items = const []});
+}
+
+/// Lines like "Semi skimmed milk 1.45" -> ("Semi Skimmed Milk", 1.45).
+List<(String, double)> parseReceiptItems(String text) {
+  const skip = [
+    'total', 'subtotal', 'sub total', 'card', 'visa', 'mastercard', 'amex', 'change', 'cash',
+    'vat', 'balance', 'tender', 'payment', 'savings', 'points', 'nectar', 'clubcard', 'thank',
+    'receipt', 'tel', 'www', 'tax', 'due', 'auth', 'contactless', 'items', 'discount', 'save',
+    'terminal', 'merchant', 'served', 'store', 'order', 'deposit',
+  ];
+  final line = RegExp(r'^(.*?[A-Za-z].*?)\s+£?\s*(\d{1,4}[.,]\d{2})\s*[A-Za-z]?$');
+  final out = <(String, double)>[];
+  for (final raw in text.split('\n')) {
+    final l = raw.trim();
+    if (l.isEmpty) continue;
+    final low = l.toLowerCase();
+    if (skip.any(low.contains)) continue;
+    final m = line.firstMatch(l);
+    if (m == null) continue;
+    var name = m.group(1)!.replaceAll(RegExp(r'^\d+\s*[xX]?\s+'), '').replaceAll(RegExp(r'[£*]+'), '').trim();
+    final letters = RegExp(r'[A-Za-z]').allMatches(name).length;
+    final price = double.tryParse(m.group(2)!.replaceAll(',', '.'));
+    if (letters < 3 || price == null || price <= 0 || price > 500) continue;
+    name = name
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
+    out.add((name, price));
+  }
+  return out;
 }
 
 /// Pure text parsing (kept separate so it can be tested without a camera).
@@ -84,7 +116,8 @@ ReceiptInfo parseReceiptText(String text) {
         .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
         .join(' ');
   }
-  return ReceiptInfo(total: total, date: date, merchant: merchant);
+  return ReceiptInfo(
+      total: total, date: date, merchant: merchant, items: parseReceiptItems(text));
 }
 
 /// Opens the camera, reads the receipt on the phone (nothing is uploaded),
