@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../cloud.dart';
+import '../excel_backup.dart';
 import '../store.dart';
 import 'auth.dart';
 import 'categories.dart';
@@ -26,12 +27,13 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _export(BuildContext context) async {
     try {
+      final bytes = ExcelBackup.build(store);
+      if (bytes == null) throw Exception('no data');
       final dir = await getTemporaryDirectory();
       final name =
-          'pocket-ledger-backup-${DateFormat('yyyyMMdd').format(DateTime.now())}.json';
+          'pocket-ledger-${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
       final file = File('${dir.path}/$name');
-      await file.writeAsString(
-          const JsonEncoder.withIndent('  ').convert(store.backupJson()));
+      await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(file.path)], text: 'Pocket Ledger backup');
     } catch (_) {
       if (context.mounted) _snack(context, 'Could not create the backup file.');
@@ -43,12 +45,16 @@ class SettingsScreen extends StatelessWidget {
       final res = await FilePicker.platform
           .pickFiles(type: FileType.any, withData: true);
       if (res == null || res.files.isEmpty) return;
-      final bytes = res.files.single.bytes;
+      final f = res.files.single;
+      final bytes = f.bytes;
       if (bytes == null) {
         if (context.mounted) _snack(context, 'Could not read that file.');
         return;
       }
-      final msg = await store.restoreBackup(utf8.decode(bytes));
+      // Excel backups (.xlsx) and older .json backups both work.
+      final msg = f.name.toLowerCase().endsWith('.json')
+          ? await store.restoreBackup(utf8.decode(bytes))
+          : await ExcelBackup.restore(store, bytes);
       if (context.mounted) _snack(context, msg);
     } catch (_) {
       if (context.mounted) _snack(context, 'Could not read that file.');
@@ -247,14 +253,14 @@ class SettingsScreen extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),
-              title: const Text('Back up to a file'),
-              subtitle: const Text('Save or share a backup (e.g. to Drive)'),
+              title: const Text('Back up everything to Excel'),
+              subtitle: const Text('One .xlsx file with all your data. Save it to Drive'),
               onTap: () => _export(context),
             ),
             ListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('Restore from a file'),
-              subtitle: const Text('Merges with what is already here'),
+              title: const Text('Restore from Excel'),
+              subtitle: const Text('Load a backup .xlsx back in (older .json files work too)'),
               onTap: () => _restore(context),
             ),
             ListTile(

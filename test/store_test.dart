@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocket_ledger/models.dart';
+import 'package:pocket_ledger/excel_backup.dart';
 import 'package:pocket_ledger/store.dart';
+import 'package:pocket_ledger/wealth.dart';
 import 'package:pocket_ledger/trends.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -194,5 +196,36 @@ void main() {
     final days = s.daySpend(ws);
     expect(days.length, 7);
     expect(weekStartOf(DateTime(2026, 11, 8)), DateTime(2026, 11, 2)); // Sunday -> Monday before
+  });
+
+  test('Excel backup round trip', () async {
+    final a = await fresh();
+    await a.upsert(tx('t1', 12.5, 'Food', date: DateTime(2026, 11, 3, 9, 30)));
+    await a.upsert(tx('t2', 2400, 'Salary', type: TxType.income, date: DateTime(2026, 11, 1)));
+    await a.setBudget('Food', 300);
+    await a.setBudget('Food', 900, period: BudgetPeriod.quarter);
+    await a.saveAccount(Account(
+        id: 'g1',
+        kind: AccountKind.gold,
+        name: 'Gold coins',
+        weight: 50,
+        history: [ValuePoint(DateTime(2026, 1, 1), 3000), ValuePoint(DateTime(2026, 11, 1), 3950)]));
+    await a.savePolicy(const Policy(id: 'p1', type: 'Life', provider: 'L&G', cover: 250000, premium: 18));
+
+    final bytes = ExcelBackup.build(a)!;
+    final b = await fresh();
+    final msg = await ExcelBackup.restore(b, bytes);
+    expect(msg.contains('Could not'), false);
+    expect(b.all.length, 2);
+    final t1 = b.all.firstWhere((t) => t.id == 't1');
+    expect(t1.amount, 12.5);
+    expect(t1.category, 'Food');
+    expect(t1.date, DateTime(2026, 11, 3, 9, 30));
+    expect(b.budgets['Food'], 300);
+    expect(b.budgetsFor(BudgetPeriod.quarter)['Food'], 900);
+    expect(b.wealth.byId('g1')!.value, 3950);
+    expect(b.wealth.byId('g1')!.history.length, 2);
+    expect(b.wealth.byId('g1')!.weight, 50);
+    expect(b.wealth.listedPolicies.single.cover, 250000);
   });
 }

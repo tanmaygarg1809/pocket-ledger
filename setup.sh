@@ -126,7 +126,7 @@ for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
         open(g, 'w').write(t)
 PY
 
-flutter pub add firebase_core firebase_auth cloud_firestore
+flutter pub add firebase_core firebase_auth cloud_firestore excel
 flutter pub get
 flutter analyze || echo "WARNING: analyze reported issues (continuing)"
 flutter test || echo "WARNING: tests failed (continuing)"
