@@ -1066,14 +1066,18 @@ class AppStore extends ChangeNotifier {
     }
     try {
       currency = (j['currency'] as String?) ?? currency;
-      _budgets
-        ..clear()
-        ..addAll((j['budgets'] as Map? ?? {})
-            .map((k, v) => MapEntry(k as String, (v as num).toDouble())));
-      _rules
-        ..clear()
-        ..addAll((j['recurring'] as List? ?? [])
-            .map((e) => RecurringRule.fromJson(Map<String, dynamic>.from(e as Map))));
+      if (j['budgets'] != null) {
+        _budgets
+          ..clear()
+          ..addAll((j['budgets'] as Map)
+              .map((k, v) => MapEntry(k as String, (v as num).toDouble())));
+      }
+      if (j['recurring'] != null) {
+        _rules
+          ..clear()
+          ..addAll((j['recurring'] as List)
+              .map((e) => RecurringRule.fromJson(Map<String, dynamic>.from(e as Map))));
+      }
       final cats = (j['categories'] as List?)
           ?.map((e) => Category.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();

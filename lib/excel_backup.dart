@@ -202,7 +202,7 @@ class ExcelBackup {
       final prefix = p.startsWith('q') ? 'Q:' : (p.startsWith('y') ? 'Y:' : '');
       budgets['$prefix$cat'] = amt;
     }
-    settings['budgets'] = budgets;
+    if (budgets.isNotEmpty) settings['budgets'] = budgets;
 
     final rules = <Map<String, dynamic>>[];
     for (final r in _table(ex, 'Recurring')) {
@@ -222,7 +222,7 @@ class ExcelBackup {
         active: (r['active'] ?? 'yes').isEmpty ? true : _yes(r['active'] ?? 'yes'),
       ).toJson());
     }
-    settings['recurring'] = rules;
+    if (rules.isNotEmpty) settings['recurring'] = rules;
 
     // Net worth
     final history = <String, List<ValuePoint>>{};
