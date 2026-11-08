@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../models.dart';
 import 'drill.dart';
+import 'forecast_screen.dart';
 import 'goals.dart';
 import 'payday.dart';
 import 'splitwise.dart';
@@ -36,6 +37,16 @@ class OverviewScreen extends StatelessWidget {
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
             _PayCard(store: store),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.timeline),
+                title: const Text('Cash forecast'),
+                subtitle: const Text('Where your balance is heading in 30, 60 and 90 days'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ForecastScreen(store: store))),
+              ),
+            ),
             _GoalsCard(store: store),
             if (store.weekView)
               ..._weekChildren(context, store)
