@@ -227,6 +227,23 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Appearance'),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 'light', label: Text('Light')),
+                    ButtonSegment(value: 'dark', label: Text('Dark')),
+                    ButtonSegment(value: 'system', label: Text('Phone')),
+                  ],
+                  selected: {store.themeMode},
+                  onSelectionChanged: (v) => store.setThemeMode(v.first),
+                ),
+              ),
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),

@@ -47,6 +47,44 @@ for g in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
         open(g, 'w').write(t2)
 PY
 
+# Sign every build with the same permanent key (signing/release.keystore) so new APKs update the installed app
+# and keep its data. (A fresh throwaway key each build would force an uninstall.)
+python3 - <<'PY'
+import os
+kts = 'android/app/build.gradle.kts'
+gr = 'android/app/build.gradle'
+CFG_KTS = """    signingConfigs {
+        create("release") {
+            storeFile = file("../../signing/release.keystore")
+            storePassword = "pocketledger"
+            keyAlias = "pocket"
+            keyPassword = "pocketledger"
+        }
+    }
+    buildTypes {"""
+CFG_GR = """    signingConfigs {
+        release {
+            storeFile file("../../signing/release.keystore")
+            storePassword "pocketledger"
+            keyAlias "pocket"
+            keyPassword "pocketledger"
+        }
+    }
+    buildTypes {"""
+if os.path.exists(kts):
+    t = open(kts).read()
+    if 'signing/release.keystore' not in t:
+        t = t.replace('    buildTypes {', CFG_KTS, 1)
+        t = t.replace('signingConfigs.getByName("debug")', 'signingConfigs.getByName("release")')
+        open(kts, 'w').write(t)
+if os.path.exists(gr):
+    t = open(gr).read()
+    if 'signing/release.keystore' not in t:
+        t = t.replace('    buildTypes {', CFG_GR, 1)
+        t = t.replace('signingConfigs.debug', 'signingConfigs.release')
+        open(gr, 'w').write(t)
+PY
+
 # Newer plugins (e.g. flutter_plugin_android_lifecycle) need compileSdk 36; force it for every Android library + the app.
 python3 - <<'PY'
 import os

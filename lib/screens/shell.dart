@@ -6,7 +6,7 @@ import 'add_txn.dart';
 import 'budgets.dart';
 import 'overview.dart';
 import 'settings.dart';
-import 'year.dart';
+import 'net_worth.dart';
 import 'transactions.dart';
 
 class Shell extends StatefulWidget {
@@ -28,7 +28,7 @@ class _ShellState extends State<Shell> {
       OverviewScreen(store: s),
       TransactionsScreen(store: s),
       BudgetsScreen(store: s),
-      YearScreen(store: s),
+      NetWorthScreen(store: s),
       SettingsScreen(store: s, cloud: widget.cloud),
     ];
     return Scaffold(
@@ -59,9 +59,9 @@ class _ShellState extends State<Shell> {
               selectedIcon: Icon(Icons.flag),
               label: 'Budgets'),
           NavigationDestination(
-              icon: Icon(Icons.bar_chart_outlined),
-              selectedIcon: Icon(Icons.bar_chart),
-              label: 'Year'),
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Net worth'),
           NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings),

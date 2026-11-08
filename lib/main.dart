@@ -6,6 +6,7 @@ import 'cloud.dart';
 import 'quick_add.dart';
 import 'screens/shell.dart';
 import 'store.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,22 +61,16 @@ class _PocketLedgerAppState extends State<PocketLedgerApp>
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF00796B);
-    return MaterialApp(
-      title: 'Pocket Ledger',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: seed,
-        brightness: Brightness.light,
+    return ListenableBuilder(
+      listenable: widget.store,
+      builder: (context, _) => MaterialApp(
+        title: 'Pocket Ledger',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: AppTheme.mode(widget.store.themeMode),
+        home: Shell(store: widget.store, cloud: widget.cloud),
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: seed,
-        brightness: Brightness.dark,
-      ),
-      themeMode: ThemeMode.system,
-      home: Shell(store: widget.store, cloud: widget.cloud),
     );
   }
 }

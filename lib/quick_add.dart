@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'models.dart';
 import 'store.dart';
+import 'widget_bridge.dart';
+import 'theme.dart';
 
 /// Small bottom-sheet style popup shown over the home screen by the
 /// widget / launcher shortcut. Saves one entry and closes.
@@ -12,16 +14,12 @@ class QuickAddApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF00796B);
     return MaterialApp(
       title: 'Quick add',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: seed),
-      darkTheme: ThemeData(
-          useMaterial3: true,
-          colorSchemeSeed: seed,
-          brightness: Brightness.dark),
-      themeMode: ThemeMode.system,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: AppTheme.mode(store.themeMode),
       home: QuickAddSheet(store: store),
     );
   }
@@ -46,6 +44,17 @@ class _QuickAddSheetState extends State<QuickAddSheet> {
   void initState() {
     super.initState();
     _category = widget.store.suggestedCategory(_type);
+    // A category button on the widget opens this popup with it pre-picked.
+    widgetInitialCategory().then((c) {
+      if (c == null || !mounted) return;
+      final ok = widget.store.categoriesFor(TxType.expense).any((x) => x.name == c);
+      if (ok) {
+        setState(() {
+          _type = TxType.expense;
+          _category = c;
+        });
+      }
+    });
   }
 
   @override

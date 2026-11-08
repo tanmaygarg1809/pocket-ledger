@@ -30,19 +30,26 @@ class OverviewScreen extends StatelessWidget {
             MonthBar(store: store),
             const SizedBox(height: 8),
             Card(
-              color: scheme.primaryContainer,
-              child: Padding(
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0A8A7C), Color(0xFF19B59E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('True net this month (after saving)',
-                        style: TextStyle(color: scheme.onPrimaryContainer)),
+                    const Text('True net this month (after saving)',
+                        style: TextStyle(color: Colors.white)),
                     const SizedBox(height: 4),
                     Text(
                       '${net >= 0 ? '+' : ''}${store.money(net)}',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: scheme.onPrimaryContainer,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -156,7 +163,7 @@ class _Stat extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 14,
-          backgroundColor: color.withValues(alpha: 0.15),
+          backgroundColor: Colors.white,
           child: Icon(icon, size: 14, color: color),
         ),
         const SizedBox(width: 6),
@@ -164,10 +171,17 @@ class _Stat extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: Theme.of(context).textTheme.labelSmall),
+              Text(label,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: Colors.white70)),
               Text(value,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.white)),
             ],
           ),
         ),

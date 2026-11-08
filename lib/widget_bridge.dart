@@ -9,3 +9,12 @@ Future<void> refreshWidget() async {
     await _channel.invokeMethod<void>('refresh');
   } catch (_) {}
 }
+
+/// The category picked by a widget button, if the popup was opened by one.
+Future<String?> widgetInitialCategory() async {
+  try {
+    return await _channel.invokeMethod<String>('initialCategory');
+  } catch (_) {
+    return null;
+  }
+}

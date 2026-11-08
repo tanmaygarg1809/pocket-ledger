@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
 import java.text.SimpleDateFormat
@@ -33,14 +34,46 @@ class QuickAddWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_label, label)
             views.setTextViewText(R.id.widget_total, value)
 
+            // Tap the + (or the headline) for a blank popup.
+            val blank = pending(context, 0, null)
+            views.setOnClickPendingIntent(R.id.widget_root, blank)
+            views.setOnClickPendingIntent(R.id.widget_add, blank)
+
+            // One-tap category buttons open the popup with that category picked.
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            views.setTextViewText(R.id.widget_week, prefs.getString("flutter.widget_week", "") ?: "")
+            val cats = categories(prefs)
+            val buttons = intArrayOf(R.id.widget_cat1, R.id.widget_cat2, R.id.widget_cat3)
+            for (i in buttons.indices) {
+                if (i < cats.size) {
+                    views.setViewVisibility(buttons[i], View.VISIBLE)
+                    views.setTextViewText(buttons[i], cats[i])
+                    views.setOnClickPendingIntent(buttons[i], pending(context, 10 + i, cats[i]))
+                } else {
+                    views.setViewVisibility(buttons[i], View.GONE)
+                }
+            }
+            manager.updateAppWidget(id, views)
+        }
+
+        private fun pending(context: Context, code: Int, category: String?): PendingIntent {
             val intent = Intent(context, QuickAddActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val pending = PendingIntent.getActivity(
-                context, 0, intent,
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            if (category != null) intent.putExtra("category", category)
+            return PendingIntent.getActivity(
+                context, code, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widget_root, pending)
-            manager.updateAppWidget(id, views)
+        }
+
+        private fun categories(prefs: SharedPreferences): List<String> {
+            val out = ArrayList<String>()
+            try {
+                val arr = JSONArray(prefs.getString("flutter.widget_cats", "[]") ?: "[]")
+                for (i in 0 until minOf(arr.length(), 3)) out.add(arr.getString(i))
+            } catch (_: Exception) {
+            }
+            return out
         }
 
         private fun headline(context: Context): Pair<String, String> {

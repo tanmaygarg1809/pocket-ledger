@@ -1,8 +1,11 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart' hide Category;
 
+import '../budget_tips.dart';
 import '../models.dart';
 import '../store.dart';
 import 'month_bar.dart';
+import 'year.dart';
 
 class BudgetsScreen extends StatelessWidget {
   final AppStore store;
@@ -95,6 +98,30 @@ class BudgetsScreen extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text('Tap a category to set a limit for this period.'),
               ),
+            if (limits.isNotEmpty) ...[
+              _SectionTitle(
+                  'Spending against budget',
+                  period == BudgetPeriod.month
+                      ? 'by week'
+                      : 'by month'),
+              _SpendChart(store: store, period: period),
+            ],
+            _SectionTitle('How to bring it down', 'tips from your numbers'),
+            for (final t in store.tips(period, store.budgetAnchor)) _TipCard(tip: t),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.bar_chart),
+                label: const Text('See the full year view'),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: const Text('Year')),
+                    body: SafeArea(child: YearScreen(store: store)),
+                  ),
+                )),
+              ),
+            ),
+            const _SectionTitle('Your categories', 'tap to set a limit'),
             for (final g in store.groupsFor(TxType.expense)) ...[
               _groupHeader(context, g, spent, limits),
               for (final c in store.categoriesFor(TxType.expense)
@@ -212,6 +239,153 @@ class _Summary extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text('${store.money(spent)} of ${store.money(limit)}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final String sub;
+  const _SectionTitle(this.title, this.sub);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          Text(sub, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpendChart extends StatelessWidget {
+  final AppStore store;
+  final BudgetPeriod period;
+  const _SpendChart({required this.store, required this.period});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final data = store.spendBuckets(period, store.budgetAnchor);
+    final bars = data.bars;
+    final line = data.budgetPerBar;
+    final top = [
+      line,
+      for (final b in bars) b.spent,
+    ].reduce((a, b) => a > b ? a : b);
+    final maxY = top <= 0 ? 1.0 : top * 1.25;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: SizedBox(
+        height: 170,
+        child: BarChart(
+          BarChartData(
+            maxY: maxY,
+            alignment: BarChartAlignment.spaceAround,
+            gridData: const FlGridData(show: false),
+            borderData: FlBorderData(show: false),
+            barTouchData: BarTouchData(enabled: false),
+            titlesData: FlTitlesData(
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 24,
+                  getTitlesWidget: (v, meta) {
+                    final i = v.toInt();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(i >= 0 && i < bars.length ? bars[i].label : '',
+                          style: const TextStyle(fontSize: 11)),
+                    );
+                  },
+                ),
+              ),
+            ),
+            extraLinesData: ExtraLinesData(horizontalLines: [
+              if (line > 0)
+                HorizontalLine(
+                  y: line,
+                  color: scheme.onSurface.withValues(alpha: 0.7),
+                  strokeWidth: 1.5,
+                  dashArray: [6, 4],
+                ),
+            ]),
+            barGroups: [
+              for (var i = 0; i < bars.length; i++)
+                BarChartGroupData(x: i, barRods: [
+                  BarChartRodData(
+                    toY: bars[i].spent,
+                    width: bars.length > 6 ? 14 : 28,
+                    borderRadius: BorderRadius.circular(5),
+                    color: line > 0 && bars[i].spent > line
+                        ? const Color(0xFFFF6B5E)
+                        : scheme.primary,
+                  ),
+                ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TipCard extends StatelessWidget {
+  final Tip tip;
+  const _TipCard({required this.tip});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      color: tip.good ? const Color(0xFFE6F7EE) : scheme.secondaryContainer,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                    tip.good ? Icons.thumb_up_alt_outlined : Icons.lightbulb_outline,
+                    size: 20,
+                    color: tip.good ? const Color(0xFF1B7F4B) : scheme.secondary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tip.title,
+                      style: text.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(tip.body, style: text.bodyMedium),
+            if (tip.saving != null) ...[
+              const SizedBox(height: 8),
+              Text('Could save ${tip.saving}',
+                  style: text.labelLarge?.copyWith(
+                      color: const Color(0xFF1B7F4B), fontWeight: FontWeight.bold)),
+            ],
           ],
         ),
       ),

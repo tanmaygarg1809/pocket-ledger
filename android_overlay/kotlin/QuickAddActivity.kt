@@ -19,6 +19,9 @@ class QuickAddActivity : FlutterActivity() {
                 if (call.method == "refresh") {
                     QuickAddWidget.refreshAll(applicationContext)
                     result.success(null)
+                } else if (call.method == "initialCategory") {
+                    // Set when a category button on the widget was tapped.
+                    result.success(intent?.getStringExtra("category"))
                 } else {
                     result.notImplemented()
                 }

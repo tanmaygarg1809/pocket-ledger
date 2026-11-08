@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'wealth.dart';
 import 'widget_bridge.dart';
 
 const currencies = <String>['£', '\$', '€', '₹', '¥', '₦', 'R\$', 'A\$', 'C\$'];
@@ -81,12 +82,15 @@ class AppStore extends ChangeNotifier {
   static const _kDirty = 'dirty_v1';
   static const _kSettingsU = 'settings_u_v1';
   static const _kSettingsDirty = 'settings_dirty_v1';
+  static const _kTheme = 'theme_v1';
+  static const _kWealth = 'wealth_v1';
 
   SharedPreferences? _prefs;
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
   final List<RecurringRule> _rules = [];
   List<Category> _cats = defaultCategories();
+  final Wealth wealth = Wealth(); // net worth: accounts + policies
   final Set<String> _dirty = {}; // txn ids not yet pushed to the cloud
   int _settingsU = 0;
   bool _settingsDirty = false;
@@ -95,6 +99,8 @@ class AppStore extends ChangeNotifier {
   DateTime budgetAnchor = DateTime(DateTime.now().year, DateTime.now().month);
 
   String currency = '£';
+  /// 'light' (default), 'dark' or 'system'. Kept on this phone only.
+  String themeMode = 'light';
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   int year = DateTime.now().year; // for the Year tab
 
@@ -111,6 +117,7 @@ class AppStore extends ChangeNotifier {
     await p.reload(); // pick up changes made by the quick-add popup
     _prefs = p;
     currency = p.getString(_kCurrency) ?? '£';
+    themeMode = p.getString(_kTheme) ?? 'light';
 
     _txns.clear();
     final t = p.getString(_kTxns);
@@ -148,6 +155,13 @@ class AppStore extends ChangeNotifier {
         if (list.isNotEmpty) _cats = list;
       } catch (_) {}
     }
+    wealth.clear();
+    final w = p.getString(_kWealth);
+    if (w != null) {
+      try {
+        wealth.loadJson(Map<String, dynamic>.from(jsonDecode(w) as Map));
+      } catch (_) {}
+    }
     _dirty.clear();
     final d = p.getString(_kDirty);
     if (d != null) {
@@ -175,6 +189,8 @@ class AppStore extends ChangeNotifier {
     await p.setString(_kRules, jsonEncode(_rules.map((e) => e.toJson()).toList()));
     await p.setString(_kCats, jsonEncode(_cats.map((e) => e.toJson()).toList()));
     await p.setString(_kCurrency, currency);
+    await p.setString(_kTheme, themeMode);
+    await p.setString(_kWealth, jsonEncode(wealth.toJson()));
     await p.setString(_kDirty, jsonEncode(_dirty.toList()));
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
@@ -190,6 +206,28 @@ class AppStore extends ChangeNotifier {
     } else {
       await p.remove('widget_date');
     }
+    // This week's spending, and your three most-used categories for the
+    // one-tap buttons on the widget.
+    final now = DateTime.now();
+    final weekStart =
+        DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+    final cutoff = now.subtract(const Duration(days: 60));
+    var week = 0.0;
+    final counts = <String, int>{};
+    for (final t in _txns) {
+      if (t.deleted || t.type != TxType.expense || isSaving(t.category)) continue;
+      if (!t.date.isBefore(weekStart)) week += t.amount;
+      if (t.date.isAfter(cutoff)) counts[t.category] = (counts[t.category] ?? 0) + 1;
+    }
+    final names = counts.keys.toList()
+      ..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
+    final top = names.take(3).toList();
+    for (final c in categoriesFor(TxType.expense)) {
+      if (top.length >= 3) break;
+      if (!top.contains(c.name)) top.add(c.name);
+    }
+    await p.setString('widget_cats', jsonEncode(top));
+    await p.setString('widget_week', 'This week ${money(week)}');
   }
 
   /// Save + notify + refresh the widget, without triggering a cloud sync.
@@ -197,6 +235,50 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
     await _save();
     await refreshWidget();
+  }
+
+  // ------------------------------------------------------------ net worth
+  String newId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+  Future<void> saveAccount(Account a) {
+    wealth.upsertAccount(a.copyWith(updatedAt: _now));
+    _touchSettings();
+    return _changed();
+  }
+
+  /// Records a new value reading (default: today) for an account.
+  Future<void> updateAccountValue(String id, double value, {DateTime? date}) {
+    final a = wealth.byId(id);
+    if (a == null) return Future.value();
+    return saveAccount(a.copyWith(
+        history: Wealth.withReading(a.history, date ?? DateTime.now(), value)));
+  }
+
+  Future<void> removeAccount(String id) {
+    final a = wealth.byId(id);
+    if (a == null) return Future.value();
+    wealth.upsertAccount(a.copyWith(deleted: true, updatedAt: _now));
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> savePolicy(Policy p) {
+    wealth.upsertPolicy(p.copyWith(updatedAt: _now));
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> removePolicy(String id) {
+    final i = wealth.policies.indexWhere((p) => p.id == id);
+    if (i < 0) return Future.value();
+    wealth.policies[i] = wealth.policies[i].copyWith(deleted: true, updatedAt: _now);
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> setThemeMode(String m) async {
+    themeMode = m;
+    await _persist();
   }
 
   /// A change made by the user on this device.
@@ -866,6 +948,12 @@ class AppStore extends ChangeNotifier {
     }
     _budgets.clear();
     _rules.clear();
+    for (final a in wealth.listed) {
+      wealth.upsertAccount(a.copyWith(deleted: true, updatedAt: _now));
+    }
+    for (final p in wealth.listedPolicies) {
+      wealth.upsertPolicy(p.copyWith(deleted: true, updatedAt: _now));
+    }
     _touchSettings();
     return _changed();
   }
@@ -878,6 +966,7 @@ class AppStore extends ChangeNotifier {
     _budgets.clear();
     _rules.clear();
     _cats = defaultCategories();
+    wealth.clear();
     _dirty.clear();
     _settingsU = 0;
     _settingsDirty = false;
@@ -935,6 +1024,7 @@ class AppStore extends ChangeNotifier {
         'budgets': _budgets,
         'recurring': _rules.map((e) => e.toJson()).toList(),
         'categories': _cats.map((e) => e.toJson()).toList(),
+        'wealth': wealth.toJson(),
         'u': _settingsU,
       };
 
@@ -942,7 +1032,21 @@ class AppStore extends ChangeNotifier {
   Future<bool> applySettingsJson(Map<String, dynamic> j,
       {bool markDirty = false}) async {
     final u = (j['u'] as num?)?.toInt() ?? 0;
-    if (u <= _settingsU) return false;
+    var wealthChanged = false;
+    final w = j['wealth'];
+    if (w is Map) {
+      try {
+        wealthChanged = wealth.merge(Map<String, dynamic>.from(w));
+      } catch (_) {}
+    }
+    if (u <= _settingsU) {
+      if (wealthChanged) {
+        if (markDirty) _touchSettings();
+        await _persist();
+        return true;
+      }
+      return false;
+    }
     try {
       currency = (j['currency'] as String?) ?? currency;
       _budgets
