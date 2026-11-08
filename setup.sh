@@ -7,6 +7,7 @@ PKG="$ORG.pocket_ledger"
 
 # Generates the android/ folder without touching lib/ or pubspec.yaml.
 flutter create --org "$ORG" --project-name pocket_ledger --platforms=android .
+rm -f test/widget_test.dart   # the default sample test refers to a class this app does not have
 
 # ---- Home-screen widget + quick-add popup + launcher shortcut (Android side) ----
 KDIR="android/app/src/main/kotlin/$(echo "$PKG" | tr . /)"

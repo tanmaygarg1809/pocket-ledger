@@ -136,7 +136,7 @@ void main() {
 
   test('ledger, insights and payee memory', () async {
     final s = await fresh();
-    await s.setBudget('Food', 100);
+    await s.setBudget('Food', 10);
     await s.upsert(Txn(
         id: 'a', type: TxType.expense, amount: 250, category: 'Food',
         payee: 'Tesco', note: '', date: DateTime.now()));
