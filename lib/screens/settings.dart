@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../cloud.dart';
 import '../excel_backup.dart';
+import 'splitwise.dart';
 import '../store.dart';
 import 'auth.dart';
 import 'categories.dart';
@@ -251,6 +252,13 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.call_split),
+              title: const Text('Splitwise'),
+              subtitle: Text('${store.splitTxns(1).length} still to add'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SplitwiseScreen(store: store))),
+            ),
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),
               title: const Text('Back up everything to Excel'),

@@ -404,6 +404,16 @@ class AppStore extends ChangeNotifier {
   bool get canShiftYearNext => year < DateTime.now().year;
 
   // ------------------------------------------------------------ transactions
+  /// Expenses flagged for Splitwise. [state] 1 = still to split, 2 = done.
+  List<Txn> splitTxns(int state) =>
+      _txns.where((t) => !t.deleted && t.split == state).toList();
+
+  Future<void> setSplit(String id, int state) {
+    final i = _txns.indexWhere((e) => e.id == id);
+    if (i < 0) return Future.value();
+    return upsert(_txns[i].copyWith(split: state));
+  }
+
   Future<void> upsert(Txn t) {
     final stamped = t.copyWith(updatedAt: _now, deleted: false);
     final i = _txns.indexWhere((e) => e.id == stamped.id);

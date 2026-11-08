@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models.dart';
+import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
 import 'month_bar.dart';
@@ -102,6 +103,20 @@ class OverviewScreen extends StatelessWidget {
             if (store.isCurrentMonth) ...[
               const SizedBox(height: 12),
               _BudgetProgressCard(store: store),
+            ],
+            if (store.splitTxns(1).isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.call_split),
+                  title: Text('${store.splitTxns(1).length} to add on Splitwise'),
+                  subtitle: Text(store.money(
+                      store.splitTxns(1).fold(0.0, (a, t) => a + t.amount))),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => SplitwiseScreen(store: store))),
+                ),
+              ),
             ],
             const SizedBox(height: 16),
             Text('Spending by category',

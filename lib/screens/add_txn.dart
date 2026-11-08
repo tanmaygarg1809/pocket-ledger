@@ -26,6 +26,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
   late final TextEditingController _note;
   TextEditingController? _payeeCtrl; // owned by the Autocomplete field
   bool _repeat = false;
+  bool _splitwise = false;
   bool _categoryTouched = false;
 
   TxType get _type => _mode == 1 ? TxType.income : TxType.expense;
@@ -47,6 +48,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     _amount = TextEditingController(
         text: e == null ? '' : e.amount.abs().toStringAsFixed(2));
     _note = TextEditingController(text: e?.note ?? '');
+    _splitwise = (e?.split ?? 0) > 0;
   }
 
   @override
@@ -86,6 +88,9 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
       payee: payee,
       note: _note.text.trim(),
       date: _date,
+      split: (_splitwise && _mode == 0)
+          ? ((widget.existing?.split ?? 0) == 2 ? 2 : 1)
+          : 0,
     ));
     if (_repeat && !_editing && _mode != 2) {
       // Start next month: this month's entry was just added by hand.
@@ -229,6 +234,14 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
               trailing: const Icon(Icons.edit_calendar),
               onTap: _pickDate,
             ),
+            if (_mode == 0)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Split on Splitwise'),
+                subtitle: const Text('Remind me to add it. Track it under Splitwise'),
+                value: _splitwise,
+                onChanged: (v) => setState(() => _splitwise = v),
+              ),
             if (!_editing && _mode != 2)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

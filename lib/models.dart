@@ -115,6 +115,9 @@ class Txn {
   /// Deleted entries are kept as tombstones so deletes sync too.
   final bool deleted;
 
+  /// Splitwise follow-up: 0 = none, 1 = still to split, 2 = done.
+  final int split;
+
   const Txn({
     required this.id,
     required this.type,
@@ -125,9 +128,10 @@ class Txn {
     this.payee = '',
     this.updatedAt = 0,
     this.deleted = false,
+    this.split = 0,
   });
 
-  Txn copyWith({int? updatedAt, bool? deleted, String? category}) => Txn(
+  Txn copyWith({int? updatedAt, bool? deleted, String? category, int? split}) => Txn(
         id: id,
         type: type,
         amount: amount,
@@ -137,6 +141,7 @@ class Txn {
         payee: payee,
         updatedAt: updatedAt ?? this.updatedAt,
         deleted: deleted ?? this.deleted,
+        split: split ?? this.split,
       );
 
   Map<String, dynamic> toJson() => {
@@ -149,6 +154,7 @@ class Txn {
         'payee': payee,
         'u': updatedAt,
         'd': deleted,
+        's': split,
       };
 
   factory Txn.fromJson(Map<String, dynamic> j) => Txn(
@@ -161,6 +167,7 @@ class Txn {
         payee: (j['payee'] as String?) ?? '',
         updatedAt: (j['u'] as num?)?.toInt() ?? 0,
         deleted: j['d'] == true,
+        split: (j['s'] as num?)?.toInt() ?? 0,
       );
 }
 
