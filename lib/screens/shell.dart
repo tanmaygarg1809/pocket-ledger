@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../cloud.dart';
 import '../store.dart';
 import 'add_txn.dart';
+import 'auth.dart';
 import 'budgets.dart';
 import 'overview.dart';
 import 'settings.dart';
@@ -20,6 +22,62 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeWelcome());
+  }
+
+  /// First time the app opens with accounts available: offer to sign in.
+  Future<void> _maybeWelcome() async {
+    final cloud = widget.cloud;
+    if (!cloud.available || cloud.user != null) return;
+    final p = await SharedPreferences.getInstance();
+    if (p.getBool('welcome_seen_v1') == true) return;
+    await p.setBool('welcome_seen_v1', true);
+    if (!mounted) return;
+    final go = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.cloud_done_outlined, size: 40),
+              const SizedBox(height: 12),
+              Text('Keep your data safe',
+                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text(
+                  'Create a free account to back up your data and use it on more than one phone. '
+                  'Only you can see it. You can also skip this and add an account later in Settings.'),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Sign in or create account')),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Not now')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (go == true && mounted) {
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => AuthScreen(cloud: cloud)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
