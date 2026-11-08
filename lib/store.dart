@@ -478,6 +478,14 @@ class AppStore extends ChangeNotifier {
   Map<String, double> budgetsFor(BudgetPeriod p) {
     final prefix = _prefix(p);
     final out = <String, double>{};
+    // Quarterly/yearly limits follow the monthly budget automatically
+    // (x3 / x12) unless you set one of your own for that period.
+    if (prefix.isNotEmpty) {
+      final mult = p == BudgetPeriod.quarter ? 3 : 12;
+      _budgets.forEach((k, v) {
+        if (!k.contains(':')) out[k] = v * mult;
+      });
+    }
     _budgets.forEach((k, v) {
       if (prefix.isEmpty) {
         if (!k.contains(':')) out[k] = v;
