@@ -12,6 +12,7 @@ import '../cloud.dart';
 import '../excel_backup.dart';
 import '../app_lock.dart';
 import '../reminders.dart';
+import 'forecast_screen.dart';
 import 'goals.dart';
 import 'payday.dart';
 import 'splitwise.dart';
@@ -302,6 +303,13 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: (v) => store.setReminders(days: v),
                 ),
               ),
+            ListTile(
+              leading: const Icon(Icons.timeline),
+              title: const Text('Cash forecast'),
+              subtitle: const Text('Where your balance is heading in 30, 60 and 90 days'),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => ForecastScreen(store: store))),
+            ),
             ListTile(
               leading: const Icon(Icons.payments_outlined),
               title: const Text('Pay date'),

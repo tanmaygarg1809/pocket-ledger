@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Category;
 
 import '../models.dart';
 import '../store.dart';
+import 'move_entries.dart';
 
 /// Settings > Categories & groups.
 class CategoriesScreen extends StatelessWidget {
@@ -121,23 +122,39 @@ class _CategoryEditorState extends State<CategoryEditor> {
     }
   }
 
+  void _openEntries() {
+    final c = widget.existing!;
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => MoveEntriesScreen(store: widget.store, category: c.name, type: c.type)));
+  }
+
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
+    final name = widget.existing!.name;
+    final count = widget.store.all.where((t) => t.category == name).length;
+    // 0 = cancel, 1 = delete, 2 = review the entries first
+    final choice = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete "${widget.existing!.name}"?'),
-        content: const Text(
-            'Entries already recorded keep this name, shown in grey, and show up in Review so you can move them. Its budgets are removed.'),
+        title: Text('Delete "$name"?'),
+        content: Text(count == 0
+            ? 'No entries use this category. Its budgets are removed.'
+            : '$count ${count == 1 ? 'entry uses' : 'entries use'} this category. You can move them to another category first. If you delete it anyway, they keep this name in grey and show up in Review. Its budgets are removed.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: const Text('Cancel')),
+          if (count > 0)
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 2), child: const Text('See & move entries')),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+              onPressed: () => Navigator.pop(ctx, 1),
+              child: Text(count > 0 ? 'Delete anyway' : 'Delete')),
         ],
       ),
     );
+    if (choice == 2) {
+      _openEntries();
+      return;
+    }
+    final ok = choice == 1;
     if (ok == true) {
       await widget.store.deleteCategory(widget.existing!.name);
       if (mounted) Navigator.of(context).pop();
@@ -251,6 +268,12 @@ class _CategoryEditorState extends State<CategoryEditor> {
           ],
           const SizedBox(height: 20),
           FilledButton(onPressed: _save, child: const Text('Save')),
+          if (editing)
+            TextButton.icon(
+              onPressed: _openEntries,
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('See entries / move to another category'),
+            ),
           if (editing)
             TextButton(
               onPressed: _delete,

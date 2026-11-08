@@ -477,6 +477,14 @@ class AppStore extends ChangeNotifier {
   /// Week view breakdown: false = by category, true = by merchant (payee).
   bool byMerchant = false;
 
+  /// Overview donut: the focused category (null = none).
+  String? donutSel;
+
+  void selectDonut(String? c) {
+    donutSel = (c == donutSel) ? null : c;
+    notifyListeners();
+  }
+
   void selectDay(int? i) {
     selectedDay = (i == selectedDay) ? null : i;
     notifyListeners();
@@ -601,6 +609,21 @@ class AppStore extends ChangeNotifier {
     _touchSettings();
     await _changed();
     return null;
+  }
+
+  /// Moves the given entries to [category]. Returns how many changed.
+  Future<int> moveTxns(List<String> ids, String category) async {
+    final set = ids.toSet();
+    var n = 0;
+    for (var i = 0; i < _txns.length; i++) {
+      final x = _txns[i];
+      if (x.deleted || !set.contains(x.id) || x.category == category) continue;
+      _txns[i] = x.copyWith(category: category, updatedAt: _now);
+      _dirty.add(x.id);
+      n++;
+    }
+    if (n > 0) await _changed();
+    return n;
   }
 
   /// Existing entries keep their category name (shown in grey).

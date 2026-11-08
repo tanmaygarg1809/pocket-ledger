@@ -4,9 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../models.dart';
 import 'drill.dart';
-import 'forecast_screen.dart';
-import 'goals.dart';
-import 'payday.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -36,18 +33,6 @@ class OverviewScreen extends StatelessWidget {
           children: [
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
-            _PayCard(store: store),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.timeline),
-                title: const Text('Cash forecast'),
-                subtitle: const Text('Where your balance is heading in 30, 60 and 90 days'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => ForecastScreen(store: store))),
-              ),
-            ),
-            _GoalsCard(store: store),
             if (store.weekView)
               ..._weekChildren(context, store)
             else ...[
@@ -145,21 +130,71 @@ class OverviewScreen extends StatelessWidget {
               )
             else ...[
               SizedBox(
-                height: 200,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 48,
-                    sections: [
-                      for (final e in entries)
-                        PieChartSectionData(
-                          value: e.value,
-                          color: store.categoryByName(e.key).colorValue,
-                          radius: 36,
-                          showTitle: false,
+                height: 220,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 56,
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, response) {
+                            if (event is! FlTapUpEvent) return;
+                            final i = response?.touchedSection?.touchedSectionIndex ?? -1;
+                            if (i >= 0 && i < entries.length) {
+                              store.selectDonut(entries[i].key);
+                            } else {
+                              store.selectDonut(null);
+                            }
+                          },
                         ),
-                    ],
-                  ),
+                        sections: [
+                          for (final e in entries)
+                            PieChartSectionData(
+                              value: e.value,
+                              color: store.categoryByName(e.key).colorValue.withValues(
+                                  alpha: (store.donutSel == null || store.donutSel == e.key) ? 1 : 0.35),
+                              radius: store.donutSel == e.key ? 48 : 36,
+                              showTitle: false,
+                            ),
+                        ],
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            entries.any((e) => e.key == store.donutSel) ? store.donutSel! : 'Spent',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          Text(
+                            store.money(entries.any((e) => e.key == store.donutSel)
+                                ? entries.firstWhere((e) => e.key == store.donutSel).value
+                                : total),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          if (entries.any((e) => e.key == store.donutSel))
+                            Text(
+                              '${(entries.firstWhere((e) => e.key == store.donutSel).value / total * 100).toStringAsFixed(0)}%',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Center(
+                child: Text(
+                  store.donutSel == null
+                      ? 'Tap a slice to focus a category'
+                      : 'Tap the slice again to clear it. Tap a row below for its entries',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
               const SizedBox(height: 8),
@@ -167,6 +202,9 @@ class OverviewScreen extends StatelessWidget {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                  selected: store.donutSel == e.key,
+                  selectedTileColor:
+                      store.categoryByName(e.key).colorValue.withValues(alpha: 0.12),
                   leading: CircleAvatar(
                     radius: 16,
                     backgroundColor: store.categoryByName(e.key).colorValue,
@@ -677,77 +715,4 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
                 ))),
       ),
   ];
-}
-
-class _GoalsCard extends StatelessWidget {
-  final AppStore store;
-  const _GoalsCard({required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    final goals = store.goals;
-    final open = goals.where((g) => !g.reached).toList()
-      ..sort((a, b) => b.fraction.compareTo(a.fraction));
-    final top = open.isNotEmpty ? open.first : (goals.isNotEmpty ? goals.first : null);
-    final earned = store.badges.where((b) => b.$3).length;
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.emoji_events_outlined),
-        title: Text(top == null ? 'Set a savings goal' : top.name),
-        subtitle: top == null
-            ? const Text('Earn badges as you save')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${store.money(top.saved)} of ${store.money(top.target)} · $earned badges'),
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(value: top.fraction, minHeight: 6),
-                ],
-              ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => GoalsScreen(store: store))),
-      ),
-    );
-  }
-}
-
-class _PayCard extends StatelessWidget {
-  final AppStore store;
-  const _PayCard({required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    final (next, needs) = store.nextPay;
-    final last = store.lastPay;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final f = DateFormat('EEE d MMM');
-    String title;
-    if (next != null) {
-      final days = next.difference(today).inDays;
-      title = days == 0
-          ? 'Payday is today'
-          : 'Next pay ${f.format(next)} · in $days day${days == 1 ? '' : 's'}';
-    } else if (needs != null) {
-      title = 'Set the pay date for ${DateFormat('MMMM').format(needs)}';
-    } else {
-      title = 'Set your pay date';
-    }
-    final since = last == null
-        ? null
-        : store.spentBetween(last, DateTime(now.year, now.month, now.day + 1));
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.payments_outlined),
-        title: Text(title),
-        subtitle: since == null
-            ? null
-            : Text('Spent since last pay (${f.format(last!)}): ${store.money(since)}'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => PaydayScreen(store: store))),
-      ),
-    );
-  }
 }
