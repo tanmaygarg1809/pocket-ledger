@@ -36,6 +36,17 @@ class Attachments {
     return out;
   }
 
+  /// Copies a photo or file already on the phone into the attachments folder.
+  static Future<String?> saveFromPath(String path, String label) async {
+    final src = File(path);
+    if (!await src.exists()) return null;
+    final dir = await _dir();
+    final safe = label.replaceAll(RegExp(r'[^A-Za-z0-9._ -]'), '_');
+    final name = '${DateTime.now().microsecondsSinceEpoch}_$safe';
+    await src.copy('${dir.path}/$name');
+    return name;
+  }
+
   static Future<File?> file(String name) async {
     final f = File('${(await _dir()).path}/$name');
     return await f.exists() ? f : null;
