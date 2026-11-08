@@ -16,6 +16,15 @@ import java.util.Locale
 /** Home-screen widget: spent today, spent this week, and a + to quick-add. */
 class QuickAddWidget : AppWidgetProvider() {
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        when (intent.action) {
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_DATE_CHANGED -> refreshAll(context)
+        }
+    }
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         for (id in ids) update(context, manager, id)
     }
