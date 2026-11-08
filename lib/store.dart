@@ -287,7 +287,55 @@ class AppStore extends ChangeNotifier {
 
   void shiftWeek(int d) {
     weekAnchor = DateTime(weekAnchor.year, weekAnchor.month, weekAnchor.day + 7 * d);
+    selectedDay = null;
     notifyListeners();
+  }
+
+  /// Week view: tapped day (0 = Monday ... 6 = Sunday); null = whole week.
+  int? selectedDay;
+
+  /// Week view breakdown: false = by category, true = by merchant (payee).
+  bool byMerchant = false;
+
+  void selectDay(int? i) {
+    selectedDay = (i == selectedDay) ? null : i;
+    notifyListeners();
+  }
+
+  void setByMerchant(bool v) {
+    byMerchant = v;
+    notifyListeners();
+  }
+
+  /// Jump to any date: shows its week with that day selected.
+  void pickDate(DateTime d) {
+    weekAnchor = weekStartOf(d);
+    selectedDay = d.weekday - 1;
+    notifyListeners();
+  }
+
+  /// Spending in [from, to) grouped by category or by merchant.
+  Map<String, double> spendBreakdown(DateTime from, DateTime to, {required bool merchant}) {
+    final out = <String, double>{};
+    for (final x in all) {
+      if (x.type != TxType.expense || isSaving(x.category)) continue;
+      if (x.date.isBefore(from) || !x.date.isBefore(to)) continue;
+      final k = merchant ? (x.payee.trim().isEmpty ? 'No merchant' : x.payee.trim()) : x.category;
+      out[k] = (out[k] ?? 0) + x.amount;
+    }
+    return out;
+  }
+
+  /// That day's individual transactions, newest first.
+  List<Txn> txnsOnDay(DateTime day) {
+    final end = DateTime(day.year, day.month, day.day + 1);
+    return all
+        .where((x) =>
+            x.type == TxType.expense &&
+            !isSaving(x.category) &&
+            !x.date.isBefore(day) &&
+            x.date.isBefore(end))
+        .toList();
   }
 
   bool get canWeekNext => !DateTime(weekAnchor.year, weekAnchor.month, weekAnchor.day + 7)

@@ -430,8 +430,20 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
   final elapsed = isCurrent ? now.weekday : 7;
   final todayIndex = isCurrent ? now.weekday - 1 : -1;
   final scheme = Theme.of(context).colorScheme;
-  final byCat = store.weekByCategory(start).entries.toList()
+  final sel = store.selectedDay;
+  final selStart = sel == null ? start : DateTime(start.year, start.month, start.day + sel);
+  final selEnd = sel == null
+      ? DateTime(start.year, start.month, start.day + 7)
+      : DateTime(start.year, start.month, start.day + sel + 1);
+  final byCat = store
+      .spendBreakdown(selStart, selEnd, merchant: store.byMerchant)
+      .entries
+      .toList()
     ..sort((a, b) => b.value.compareTo(a.value));
+  final shownTotal = byCat.fold(0.0, (a, e) => a + e.value);
+  final shownLabel = sel == null
+      ? 'the week'
+      : (isCurrent && sel == todayIndex ? 'today' : DateFormat('EEE d MMM').format(selStart));
   var hi = 0.0;
   for (final v in days) {
     if (v > hi) hi = v;
@@ -476,7 +488,26 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
       ),
     ),
     const SizedBox(height: 16),
-    Text('Day by day', style: Theme.of(context).textTheme.titleMedium),
+    Row(
+      children: [
+        Expanded(
+          child: Text('Day by day', style: Theme.of(context).textTheme.titleMedium),
+        ),
+        TextButton.icon(
+          icon: const Icon(Icons.event, size: 18),
+          label: const Text('Pick a date'),
+          onPressed: () async {
+            final d = await showDatePicker(
+              context: context,
+              initialDate: sel == null ? DateTime.now() : selStart,
+              firstDate: DateTime(2000),
+              lastDate: DateTime.now(),
+            );
+            if (d != null) store.pickDate(d);
+          },
+        ),
+      ],
+    ),
     const SizedBox(height: 8),
     SizedBox(
       height: 170,
@@ -486,7 +517,20 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
           alignment: BarChartAlignment.spaceAround,
           gridData: const FlGridData(show: false),
           borderData: FlBorderData(show: false),
-          barTouchData: BarTouchData(enabled: false),
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, gi, rod, ri) => BarTooltipItem(
+                store.money(rod.toY),
+                const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+            touchCallback: (event, response) {
+              if (event is FlTapUpEvent && response?.spot != null) {
+                store.selectDay(response!.spot!.touchedBarGroupIndex);
+              }
+            },
+          ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -524,9 +568,9 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
                   toY: days[i],
                   width: 22,
                   borderRadius: BorderRadius.circular(6),
-                  color: i == todayIndex
-                      ? const Color(0xFFFF6B5E)
-                      : scheme.primary,
+                  color: (sel != null && sel != i)
+                      ? scheme.primary.withValues(alpha: 0.3)
+                      : (i == todayIndex ? const Color(0xFFFF6B5E) : scheme.primary),
                 ),
               ]),
           ],
@@ -534,26 +578,50 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
       ),
     ),
     const SizedBox(height: 4),
-    Text('Dashed line: your daily average',
+    Text('Dashed line: your daily average. Tap a bar to see that day.',
         style: Theme.of(context).textTheme.bodySmall),
     const SizedBox(height: 16),
-    Text('Where it went', style: Theme.of(context).textTheme.titleMedium),
+    Row(
+      children: [
+        Expanded(
+          child: Text(
+              'Where $shownLabel went · ${store.money(shownTotal)}',
+              style: Theme.of(context).textTheme.titleMedium),
+        ),
+        if (sel != null)
+          TextButton(
+              onPressed: () => store.selectDay(null), child: const Text('Whole week')),
+      ],
+    ),
+    const SizedBox(height: 4),
+    SegmentedButton<bool>(
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(value: false, label: Text('By category')),
+        ButtonSegment(value: true, label: Text('By merchant')),
+      ],
+      selected: {store.byMerchant},
+      onSelectionChanged: (s) => store.setByMerchant(s.first),
+    ),
     if (byCat.isEmpty)
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text('Nothing spent this week yet.')),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text('Nothing spent $shownLabel.')),
       ),
-    for (final e in byCat.take(6))
+    for (final e in byCat.take(store.byMerchant ? 30 : 12))
       ListTile(
         dense: true,
         contentPadding: EdgeInsets.zero,
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: store.categoryByName(e.key).colorValue,
-          child: Icon(store.categoryByName(e.key).iconData, size: 16, color: Colors.white),
-        ),
+        leading: store.byMerchant
+            ? const CircleAvatar(radius: 16, child: Icon(Icons.storefront, size: 16))
+            : CircleAvatar(
+                radius: 16,
+                backgroundColor: store.categoryByName(e.key).colorValue,
+                child: Icon(store.categoryByName(e.key).iconData, size: 16, color: Colors.white),
+              ),
         title: Text(e.key),
-        subtitle: Text('${(e.value / (total <= 0 ? 1 : total) * 100).toStringAsFixed(0)}% of the week'),
+        subtitle: Text(
+            '${(e.value / (shownTotal <= 0 ? 1 : shownTotal) * 100).toStringAsFixed(0)}% of $shownLabel'),
         trailing: Text(store.money(e.value)),
       ),
   ];
