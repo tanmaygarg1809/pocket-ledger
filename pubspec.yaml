@@ -1,0 +1,27 @@
+name: pocket_ledger
+description: Private expense and budget tracker with optional cloud sync.
+publish_to: "none"
+version: 1.2.0+3
+
+environment:
+  sdk: ^3.5.0
+
+# NOTE: firebase_core, firebase_auth and cloud_firestore are added by
+# setup.sh (`flutter pub add ...`) so you get the newest matching versions.
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.3.0
+  intl: ^0.19.0
+  fl_chart: ^0.69.0
+  path_provider: ^2.1.4
+  share_plus: ^10.1.4
+  file_picker: ^8.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
