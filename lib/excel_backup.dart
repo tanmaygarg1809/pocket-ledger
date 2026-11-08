@@ -69,9 +69,12 @@ class ExcelBackup {
     ]);
 
     final w = s.wealth;
-    _sheet(ex, 'Accounts', ['ID', 'Kind', 'Name', 'Held with', 'Weight (g)', 'In net worth'], [
+    _sheet(ex, 'Members', ['ID', 'Name'], [
+      for (final m in w.people) [m.id, m.name],
+    ]);
+    _sheet(ex, 'Accounts', ['ID', 'Kind', 'Name', 'Held with', 'Weight (g)', 'In net worth', 'Owner'], [
       for (final a in w.listed)
-        [a.id, a.kind.name, a.name, a.provider, a.weight, a.include ? 'yes' : 'no'],
+        [a.id, a.kind.name, a.name, a.provider, a.weight, a.include ? 'yes' : 'no', w.ownerName(a.owner)],
     ]);
     _sheet(ex, 'Account values', ['Account ID', 'Account', 'Date', 'Value'], [
       for (final a in w.listed)
@@ -230,6 +233,28 @@ class ExcelBackup {
       if (id.isEmpty || d == null || v == null) continue;
       (history[id] ??= []).add(ValuePoint(d, v));
     }
+    // People: names in the Owner column are matched to the Members sheet;
+    // a new name creates a new family member.
+    final members = <Map<String, dynamic>>[];
+    final nameToId = <String, String>{'me': 'me', 'joint': 'joint'};
+    for (final r in _table(ex, 'Members')) {
+      final name = r['name'] ?? '';
+      final id = r['id'] ?? '';
+      if (name.isEmpty || id.isEmpty) continue;
+      nameToId[name.toLowerCase()] = id;
+      members.add(Member(id: id, name: name, updatedAt: now).toJson());
+    }
+    String ownerId(String name) {
+      final key = name.trim().toLowerCase();
+      if (key.isEmpty) return 'me';
+      final known = nameToId[key];
+      if (known != null) return known;
+      final id = 'xlm${DateTime.now().microsecondsSinceEpoch}_${seq++}';
+      nameToId[key] = id;
+      members.add(Member(id: id, name: name.trim(), updatedAt: now).toJson());
+      return id;
+    }
+
     final accounts = <Map<String, dynamic>>[];
     for (final r in _table(ex, 'Accounts')) {
       final name = r['name'] ?? '';
@@ -245,6 +270,7 @@ class ExcelBackup {
         provider: r['held with'] ?? '',
         weight: _n(r['weight (g)'] ?? ''),
         include: (r['in net worth'] ?? 'yes').isEmpty ? true : _yes(r['in net worth'] ?? 'yes'),
+        owner: ownerId(r['owner'] ?? ''),
         history: (history[id] ?? [])..sort((a, b) => a.date.compareTo(b.date)),
         updatedAt: now,
       ).toJson());
@@ -266,7 +292,7 @@ class ExcelBackup {
         updatedAt: now,
       ).toJson());
     }
-    settings['wealth'] = {'accounts': accounts, 'policies': policies};
+    settings['wealth'] = {'accounts': accounts, 'policies': policies, 'members': members};
 
     final msg = await store.restoreBackup(jsonEncode({
       'app': 'pocket_ledger',

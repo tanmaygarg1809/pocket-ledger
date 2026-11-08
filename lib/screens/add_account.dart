@@ -22,6 +22,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   late final TextEditingController _weight;
   late final TextEditingController _value;
   late bool _include;
+  late String _owner;
   DateTime _date = DateTime.now();
   String? _error;
 
@@ -37,6 +38,8 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     _value = TextEditingController(
         text: e == null || e.history.isEmpty ? '' : e.value.toStringAsFixed(e.value % 1 == 0 ? 0 : 2));
     _include = e?.include ?? true;
+    final f = widget.store.wealthFilter;
+    _owner = e?.owner ?? ((f != null && (f == Wealth.joint || widget.store.wealth.people.any((m) => m.id == f))) ? f : Wealth.me);
   }
 
   @override
@@ -88,6 +91,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       provider: _provider.text.trim(),
       weight: w,
       include: _include,
+      owner: _owner,
       history: history,
     );
     await widget.store.saveAccount(a);
@@ -122,6 +126,30 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   ),
               ],
             ),
+            if (widget.store.wealth.people.length > 1 ||
+                widget.store.wealth.listed.any((a) => a.owner == Wealth.joint) ||
+                widget.existing == null) ...[
+              const SizedBox(height: 16),
+              Text('Whose is it?', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final m in widget.store.wealth.people)
+                    ChoiceChip(
+                      label: Text(m.name),
+                      selected: _owner == m.id,
+                      onSelected: (_) => setState(() => _owner = m.id),
+                    ),
+                  ChoiceChip(
+                    label: const Text('Joint'),
+                    selected: _owner == Wealth.joint,
+                    onSelected: (_) => setState(() => _owner = Wealth.joint),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _name,

@@ -108,6 +108,7 @@ class Account {
   final String provider;
   final double? weight; // grams, for gold
   final bool include; // counts towards net worth
+  final String owner; // member id, 'joint', or 'me' (the default)
   final List<ValuePoint> history; // oldest first
   final int updatedAt;
   final bool deleted;
@@ -119,6 +120,7 @@ class Account {
     this.provider = '',
     this.weight,
     this.include = true,
+    this.owner = 'me',
     this.history = const [],
     this.updatedAt = 0,
     this.deleted = false,
@@ -145,6 +147,7 @@ class Account {
     double? weight,
     bool clearWeight = false,
     bool? include,
+    String? owner,
     List<ValuePoint>? history,
     int? updatedAt,
     bool? deleted,
@@ -156,6 +159,7 @@ class Account {
         provider: provider ?? this.provider,
         weight: clearWeight ? null : (weight ?? this.weight),
         include: include ?? this.include,
+        owner: owner ?? this.owner,
         history: history ?? this.history,
         updatedAt: updatedAt ?? this.updatedAt,
         deleted: deleted ?? this.deleted,
@@ -168,6 +172,7 @@ class Account {
         'provider': provider,
         'weight': weight,
         'include': include,
+        'owner': owner,
         'history': history.map((e) => e.toJson()).toList(),
         'u': updatedAt,
         'del': deleted,
@@ -181,6 +186,7 @@ class Account {
         provider: (j['provider'] as String?) ?? '',
         weight: (j['weight'] as num?)?.toDouble(),
         include: (j['include'] as bool?) ?? true,
+        owner: (j['owner'] as String?) ?? 'me',
         history: ((j['history'] as List?) ?? [])
             .map((e) => ValuePoint.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList()
@@ -267,6 +273,33 @@ class Policy {
       );
 }
 
+/// A person in the family whose accounts are tracked. The first person,
+/// "Me", always exists (id 'me') and can be renamed. "Joint" accounts are
+/// a built-in extra owner (id 'joint').
+class Member {
+  final String id;
+  final String name;
+  final int updatedAt;
+  final bool deleted;
+  const Member({required this.id, required this.name, this.updatedAt = 0, this.deleted = false});
+
+  Member copyWith({String? name, int? updatedAt, bool? deleted}) => Member(
+        id: id,
+        name: name ?? this.name,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deleted: deleted ?? this.deleted,
+      );
+
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'u': updatedAt, 'del': deleted};
+
+  factory Member.fromJson(Map<String, dynamic> j) => Member(
+        id: j['id'] as String,
+        name: (j['name'] as String?) ?? 'Me',
+        updatedAt: (j['u'] as num?)?.toInt() ?? 0,
+        deleted: (j['del'] as bool?) ?? false,
+      );
+}
+
 class WealthPoint {
   final DateTime date;
   final double value;
@@ -277,22 +310,56 @@ class WealthPoint {
 class Wealth {
   final List<Account> accounts = []; // includes deleted tombstones
   final List<Policy> policies = [];
+  final List<Member> members = []; // includes tombstones
+
+  static const me = 'me';
+  static const joint = 'joint';
+
+  /// Everyone shown on the page: Me first, then the others added.
+  List<Member> get people {
+    final stored = members.where((m) => !m.deleted).toList();
+    final meStored = stored.where((m) => m.id == me).toList();
+    return [
+      meStored.isNotEmpty ? meStored.first : const Member(id: me, name: 'Me'),
+      ...stored.where((m) => m.id != me),
+    ];
+  }
+
+  bool get hasFamily => people.length > 1 || listed.any((a) => a.owner == joint);
+
+  String ownerName(String id) {
+    if (id == joint) return 'Joint';
+    for (final p in people) {
+      if (p.id == id) return p.name;
+    }
+    return 'Me';
+  }
+
+  /// The accounts that belong to [owner], or everyone's if null.
+  List<Account> countedFor(String? owner) => listed
+      .where((a) => a.include && (owner == null || a.owner == owner))
+      .toList(growable: false);
 
   List<Account> get listed =>
       accounts.where((a) => !a.deleted).toList(growable: false);
   List<Policy> get listedPolicies =>
       policies.where((p) => !p.deleted).toList(growable: false);
-  List<Account> get counted => listed.where((a) => a.include).toList(growable: false);
+  List<Account> get counted => countedFor(null);
 
-  double get _policyCash =>
-      listedPolicies.fold(0.0, (a, p) => a + (p.cashValue ?? 0));
+  // Policy cash-in values belong to the whole family view only.
+  double _policyCashFor(String? owner) =>
+      owner == null ? listedPolicies.fold(0.0, (a, p) => a + (p.cashValue ?? 0)) : 0.0;
 
-  double get assets =>
-      counted.where((a) => !a.kind.isDebt).fold(0.0, (a, b) => a + b.value) +
-      _policyCash;
-  double get debts =>
-      counted.where((a) => a.kind.isDebt).fold(0.0, (a, b) => a + b.value);
-  double get netWorth => assets - debts;
+  double assetsOf(String? owner) =>
+      countedFor(owner).where((a) => !a.kind.isDebt).fold(0.0, (a, b) => a + b.value) +
+      _policyCashFor(owner);
+  double debtsOf(String? owner) =>
+      countedFor(owner).where((a) => a.kind.isDebt).fold(0.0, (a, b) => a + b.value);
+  double netWorthOf(String? owner) => assetsOf(owner) - debtsOf(owner);
+
+  double get assets => assetsOf(null);
+  double get debts => debtsOf(null);
+  double get netWorth => netWorthOf(null);
   bool get isEmpty => listed.isEmpty;
 
   double get totalCover => listedPolicies.fold(0.0, (a, p) => a + p.cover);
@@ -306,9 +373,9 @@ class Wealth {
   }
 
   /// Net worth as it stood on [d], from each account's value history.
-  double netWorthAt(DateTime d) {
-    var total = _policyCash;
-    for (final a in counted) {
+  double netWorthAt(DateTime d, {String? owner}) {
+    var total = _policyCashFor(owner);
+    for (final a in countedFor(owner)) {
       final v = a.valueOn(d) ?? 0;
       total += a.kind.isDebt ? -v : v;
     }
@@ -316,33 +383,34 @@ class Wealth {
   }
 
   /// One point per month for the last [months] months (the last is "now").
-  List<WealthPoint> series(int months, {DateTime? now}) {
+  List<WealthPoint> series(int months, {DateTime? now, String? owner}) {
     final n = now ?? DateTime.now();
     final out = <WealthPoint>[];
     for (var i = months - 1; i >= 0; i--) {
       final end = i == 0
           ? n
           : DateTime(n.year, n.month - i + 1, 0, 23, 59, 59);
-      out.add(WealthPoint(DateTime(end.year, end.month), netWorthAt(end)));
+      out.add(WealthPoint(DateTime(end.year, end.month), netWorthAt(end, owner: owner)));
     }
     return out;
   }
 
   /// Value of each group of assets (no debts), for the split bar.
-  Map<String, double> allocation() {
+  Map<String, double> allocation({String? owner}) {
     final out = <String, double>{};
-    for (final a in counted.where((a) => !a.kind.isDebt)) {
+    for (final a in countedFor(owner).where((a) => !a.kind.isDebt)) {
       out[a.kind.group] = (out[a.kind.group] ?? 0) + a.value;
     }
-    if (_policyCash > 0) out['Other assets'] = (out['Other assets'] ?? 0) + _policyCash;
+    final pc = _policyCashFor(owner);
+    if (pc > 0) out['Other assets'] = (out['Other assets'] ?? 0) + pc;
     out.removeWhere((_, v) => v <= 0);
     return out;
   }
 
   /// Change since [from], by group. Paying debt down counts as growth.
-  Map<String, double> changeByGroup(DateTime from) {
+  Map<String, double> changeByGroup(DateTime from, {String? owner}) {
     final out = <String, double>{};
-    for (final a in counted) {
+    for (final a in countedFor(owner)) {
       final now = a.value;
       final before = a.valueOn(from) ?? 0;
       var d = now - before;
@@ -364,6 +432,15 @@ class Wealth {
       accounts.add(a);
     } else {
       accounts[i] = a;
+    }
+  }
+
+  void upsertMember(Member m) {
+    final i = members.indexWhere((x) => x.id == m.id);
+    if (i < 0) {
+      members.add(m);
+    } else {
+      members[i] = m;
     }
   }
 
@@ -394,12 +471,14 @@ class Wealth {
   void clear() {
     accounts.clear();
     policies.clear();
+    members.clear();
   }
 
   // ------------------------------------------------------------ saving
   Map<String, dynamic> toJson() => {
         'accounts': accounts.map((e) => e.toJson()).toList(),
         'policies': policies.map((e) => e.toJson()).toList(),
+        'members': members.map((e) => e.toJson()).toList(),
       };
 
   void loadJson(Map<String, dynamic> j) {
@@ -409,6 +488,9 @@ class Wealth {
     }
     for (final e in (j['policies'] as List? ?? [])) {
       policies.add(Policy.fromJson(Map<String, dynamic>.from(e as Map)));
+    }
+    for (final e in (j['members'] as List? ?? [])) {
+      members.add(Member.fromJson(Map<String, dynamic>.from(e as Map)));
     }
   }
 
@@ -435,6 +517,17 @@ class Wealth {
         changed = true;
       } else if (r.updatedAt > policies[i].updatedAt) {
         policies[i] = r;
+        changed = true;
+      }
+    }
+    for (final e in (j['members'] as List? ?? [])) {
+      final r = Member.fromJson(Map<String, dynamic>.from(e as Map));
+      final i = members.indexWhere((x) => x.id == r.id);
+      if (i < 0) {
+        members.add(r);
+        changed = true;
+      } else if (r.updatedAt > members[i].updatedAt) {
+        members[i] = r;
         changed = true;
       }
     }

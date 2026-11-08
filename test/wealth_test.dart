@@ -79,4 +79,30 @@ void main() {
     expect(w2.byId('g')!.value, 3000);
     expect(w2.listedPolicies.single.renewal, DateTime(2027, 3, 2));
   });
+
+  test('family: per person and joint, group total', () {
+    final w = Wealth()
+      ..upsertMember(const Member(id: 'wife', name: 'Asha', updatedAt: 1))
+      ..upsertAccount(Account(
+          id: 'a1', kind: AccountKind.bank, name: 'Mine', owner: 'me',
+          history: [ValuePoint(DateTime(2026, 1, 1), 1000)], updatedAt: 1))
+      ..upsertAccount(Account(
+          id: 'a2', kind: AccountKind.savings, name: 'Hers', owner: 'wife',
+          history: [ValuePoint(DateTime(2026, 1, 1), 2000)], updatedAt: 1))
+      ..upsertAccount(Account(
+          id: 'a3', kind: AccountKind.loan, name: 'Mortgage', owner: Wealth.joint,
+          history: [ValuePoint(DateTime(2026, 1, 1), 500)], updatedAt: 1));
+    expect(w.people.map((m) => m.name).toList(), ['Me', 'Asha']);
+    expect(w.hasFamily, true);
+    expect(w.netWorthOf('me'), 1000);
+    expect(w.netWorthOf('wife'), 2000);
+    expect(w.netWorthOf(Wealth.joint), -500);
+    expect(w.netWorthOf(null), 2500);
+    expect(w.ownerName('wife'), 'Asha');
+    expect(w.series(2, now: DateTime(2026, 2, 1), owner: 'wife').last.value, 2000);
+    expect(w.allocation(owner: 'wife').keys.toList(), ['Cash & bank']);
+    final w2 = Wealth()..loadJson(w.toJson());
+    expect(w2.people.length, 2);
+    expect(w2.byId('a2')!.owner, 'wife');
+  });
 }

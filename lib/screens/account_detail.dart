@@ -123,6 +123,7 @@ class AccountDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _row(context, 'Type', a.kind.label),
+                if (store.wealth.hasFamily) _row(context, 'Belongs to', store.wealth.ownerName(a.owner)),
                 if (a.provider.isNotEmpty) _row(context, 'Held with', a.provider),
                 if (a.weight != null)
                   _row(context, 'Weight', '${a.weight!.toStringAsFixed(a.weight! % 1 == 0 ? 0 : 2)} g'),

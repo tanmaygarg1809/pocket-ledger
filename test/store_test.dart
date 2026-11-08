@@ -210,6 +210,8 @@ void main() {
         name: 'Gold coins',
         weight: 50,
         history: [ValuePoint(DateTime(2026, 1, 1), 3000), ValuePoint(DateTime(2026, 11, 1), 3950)]));
+    await a.saveMember(const Member(id: 'wife', name: 'Asha'));
+    await a.saveAccount(Account(id: 'w1', kind: AccountKind.bank, name: 'Her bank', owner: 'wife', history: [ValuePoint(DateTime(2026, 5, 1), 700)]));
     await a.savePolicy(const Policy(id: 'p1', type: 'Life', provider: 'L&G', cover: 250000, premium: 18));
 
     final bytes = ExcelBackup.build(a)!;
@@ -227,5 +229,8 @@ void main() {
     expect(b.wealth.byId('g1')!.history.length, 2);
     expect(b.wealth.byId('g1')!.weight, 50);
     expect(b.wealth.listedPolicies.single.cover, 250000);
+    expect(b.wealth.byId('w1')!.owner, 'wife');
+    expect(b.wealth.ownerName('wife'), 'Asha');
+    expect(b.wealth.byId('g1')!.owner, 'me');
   });
 }

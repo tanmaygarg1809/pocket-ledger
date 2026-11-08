@@ -107,6 +107,8 @@ class AppStore extends ChangeNotifier {
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   int year = DateTime.now().year; // for the Year tab
   bool weekView = false; // Overview: week instead of month
+  /// Net worth page: null = whole family, else a member id (or 'joint').
+  String? wealthFilter;
   DateTime weekAnchor = weekStartOf(DateTime.now());
 
   /// Set by CloudService: called after a change made on this device.
@@ -250,6 +252,32 @@ class AppStore extends ChangeNotifier {
     wealth.policies[i] = wealth.policies[i].copyWith(deleted: true, updatedAt: _now);
     _touchSettings();
     return _changed();
+  }
+
+  void setWealthFilter(String? f) {
+    wealthFilter = f;
+    notifyListeners();
+  }
+
+  Future<void> saveMember(Member m) {
+    wealth.upsertMember(m.copyWith(updatedAt: _now));
+    _touchSettings();
+    return _changed();
+  }
+
+  /// Returns an error message, or null if removed.
+  Future<String?> removeMember(String id) async {
+    if (id == Wealth.me) return 'You cannot remove yourself.';
+    if (wealth.listed.any((a) => a.owner == id)) {
+      return 'Move or remove their accounts first.';
+    }
+    final i = wealth.members.indexWhere((m) => m.id == id);
+    if (i < 0) return null;
+    wealth.members[i] = wealth.members[i].copyWith(deleted: true, updatedAt: _now);
+    if (wealthFilter == id) wealthFilter = null;
+    _touchSettings();
+    await _changed();
+    return null;
   }
 
   void setWeekView(bool v) {

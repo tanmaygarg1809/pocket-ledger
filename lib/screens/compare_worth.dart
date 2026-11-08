@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Category;
 import 'package:intl/intl.dart';
 
 import '../store.dart';
+import '../wealth.dart';
 import 'net_worth.dart';
 
 /// Compare today's net worth with an earlier date and see what changed.
@@ -31,6 +32,9 @@ class _CompareWorthScreenState extends State<CompareWorthScreen> {
   @override
   Widget build(BuildContext context) {
     final w = store.wealth;
+    final o0 = store.wealthFilter;
+    final String? owner =
+        (o0 != null && o0 != Wealth.joint && !w.people.any((m) => m.id == o0)) ? null : o0;
     final now = DateTime.now();
     final text = Theme.of(context).textTheme;
     var from = DateTime(now.year, now.month - _months, now.day);
@@ -40,13 +44,13 @@ class _CompareWorthScreenState extends State<CompareWorthScreen> {
       from = earliest;
       clipped = true;
     }
-    final then = w.netWorthAt(from);
-    final today = w.netWorth;
+    final then = w.netWorthAt(from, owner: owner);
+    final today = w.netWorthOf(owner);
     final diff = today - then;
     final pct = then == 0 ? null : diff / then.abs() * 100;
     final span = ((now.year - from.year) * 12 + now.month - from.month).clamp(1, 240).toInt();
-    final series = w.series(span + 1);
-    final changes = w.changeByGroup(from).entries.toList()
+    final series = w.series(span + 1, owner: owner);
+    final changes = w.changeByGroup(from, owner: owner).entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final maxAbs = changes.isEmpty
         ? 1.0
@@ -54,7 +58,7 @@ class _CompareWorthScreenState extends State<CompareWorthScreen> {
     final fmt = DateFormat('MMM yyyy');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Growth')),
+      appBar: AppBar(title: Text(owner == null ? 'Growth' : 'Growth · ${w.ownerName(owner)}')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

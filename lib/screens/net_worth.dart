@@ -8,6 +8,7 @@ import 'account_detail.dart';
 import 'add_account.dart';
 import 'add_policy.dart';
 import 'compare_worth.dart';
+import 'members.dart';
 
 const _coral = Color(0xFFFF6B5E);
 const _green = Color(0xFF2EAD6B);
@@ -212,15 +213,19 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
       listenable: store,
       builder: (context, _) {
         final w = store.wealth;
+        final f0 = store.wealthFilter;
+        final String? f =
+            (f0 != null && f0 != Wealth.joint && !w.people.any((m) => m.id == f0)) ? null : f0;
         final text = Theme.of(context).textTheme;
         final scheme = Theme.of(context).colorScheme;
-        final series = w.series(_span() + 1);
+        final series = w.series(_span() + 1, owner: f);
         final values = [for (final p in series) p.value];
         final labels = [for (final p in series) DateFormat('MMM').format(p.date)];
         final prevMonth = series.length >= 2 ? series[series.length - 2].value : 0.0;
         final first = series.first.value;
-        final monthChange = w.netWorth - prevMonth;
-        final rangeChange = w.netWorth - first;
+        final monthChange = w.netWorthOf(f) - prevMonth;
+        final rangeChange = w.netWorthOf(f) - first;
+        final title = f == null ? 'Family net worth' : '${w.ownerName(f)}${f == Wealth.joint ? '' : "'s"} net worth';
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -232,7 +237,44 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [
-              Text('Net worth', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(w.hasFamily ? 'Family' : 'Net worth',
+                        style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => MembersScreen(store: store))),
+                    icon: const Icon(Icons.group_add_outlined, size: 20),
+                    label: Text(w.people.length > 1 ? 'People' : 'Add family'),
+                  ),
+                ],
+              ),
+              if (w.hasFamily) ...[
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Everyone'),
+                      selected: f == null,
+                      onSelected: (_) => store.setWealthFilter(null),
+                    ),
+                    for (final m in w.people)
+                      ChoiceChip(
+                        label: Text(m.name),
+                        selected: f == m.id,
+                        onSelected: (_) => store.setWealthFilter(m.id),
+                      ),
+                    if (w.listed.any((a) => a.owner == Wealth.joint))
+                      ChoiceChip(
+                        label: const Text('Joint'),
+                        selected: f == Wealth.joint,
+                        onSelected: (_) => store.setWealthFilter(Wealth.joint),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Card(
                 clipBehavior: Clip.antiAlias,
@@ -248,9 +290,9 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total net worth', style: TextStyle(color: Colors.white)),
+                      Text(title, style: const TextStyle(color: Colors.white)),
                       const SizedBox(height: 4),
-                      Text(wMoney(store, w.netWorth),
+                      Text(wMoney(store, w.netWorthOf(f)),
                           style: text.headlineLarge?.copyWith(
                               color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
@@ -321,15 +363,16 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _Tile('Assets', wMoney(store, w.assets), null)),
+                    Expanded(child: _Tile('Assets', wMoney(store, w.assetsOf(f)), null)),
                     const SizedBox(width: 8),
                     Expanded(
                         child: _Tile(
-                            'Debts', w.debts > 0 ? '-${wMoney(store, w.debts)}' : wMoney(store, 0), _coral)),
+                            'Debts', w.debtsOf(f) > 0 ? '-${wMoney(store, w.debtsOf(f))}' : wMoney(store, 0), _coral)),
                   ],
                 ),
-                _Allocation(store: store),
-                for (final g in wealthGroups) ..._group(context, g, scheme),
+                if (f == null && w.hasFamily) _ByPerson(store: store),
+                _Allocation(store: store, owner: f),
+                for (final g in wealthGroups) ..._group(context, g, scheme, f),
               ],
               _Policies(store: store),
             ],
@@ -339,8 +382,10 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     );
   }
 
-  List<Widget> _group(BuildContext context, String g, ColorScheme scheme) {
-    final items = store.wealth.listed.where((a) => a.kind.group == g).toList()
+  List<Widget> _group(BuildContext context, String g, ColorScheme scheme, String? f) {
+    final items = store.wealth.listed
+        .where((a) => a.kind.group == g && (f == null || a.owner == f))
+        .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     if (items.isEmpty) return const [];
     final isDebt = g == 'Debts';
@@ -369,6 +414,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
           ),
           title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text([
+            if (f == null && store.wealth.hasFamily) store.wealth.ownerName(a.owner),
             if (a.provider.isNotEmpty) a.provider,
             if (a.updated != null) 'Updated ${DateFormat('d MMM').format(a.updated!)}',
             if (!a.include) 'not counted',
@@ -413,11 +459,12 @@ class _Tile extends StatelessWidget {
 
 class _Allocation extends StatelessWidget {
   final AppStore store;
-  const _Allocation({required this.store});
+  final String? owner;
+  const _Allocation({required this.store, this.owner});
 
   @override
   Widget build(BuildContext context) {
-    final alloc = store.wealth.allocation();
+    final alloc = store.wealth.allocation(owner: owner);
     final total = alloc.values.fold(0.0, (a, b) => a + b);
     if (total <= 0) return const SizedBox.shrink();
     final entries = alloc.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
@@ -520,6 +567,62 @@ class _Policies extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
       ],
+    );
+  }
+}
+
+/// Each person's share of the family net worth.
+class _ByPerson extends StatelessWidget {
+  final AppStore store;
+  const _ByPerson({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = store.wealth;
+    final owners = [
+      for (final m in w.people) m.id,
+      if (w.listed.any((a) => a.owner == Wealth.joint)) Wealth.joint,
+    ];
+    final values = {for (final o in owners) o: w.netWorthOf(o)};
+    final maxAbs = values.values.fold(0.0, (a, b) => a.abs() > b.abs() ? a.abs() : b.abs());
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('By person',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          for (final o in owners)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(w.ownerName(o))),
+                      Text(wMoney(store, values[o]!),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: LinearProgressIndicator(
+                      value: maxAbs <= 0 ? 0.0 : (values[o]!.abs() / maxAbs).clamp(0.0, 1.0).toDouble(),
+                      minHeight: 10,
+                      color: o == Wealth.joint
+                          ? const Color(0xFFF5B83D)
+                          : Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
