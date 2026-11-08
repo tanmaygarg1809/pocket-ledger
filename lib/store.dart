@@ -1120,12 +1120,17 @@ class AppStore extends ChangeNotifier {
       final n = await mergeTxns(list, markDirty: true);
       final s = j['settings'];
       if (s is Map) {
-        await applySettingsJson(Map<String, dynamic>.from(s), markDirty: true);
+        final sm = Map<String, dynamic>.from(s);
+        // An explicit restore always wins over the settings already on the phone.
+        final fileU = (sm['u'] as num?)?.toInt() ?? 0;
+        sm['u'] = fileU > _settingsU ? fileU : _settingsU + 1;
+        await applySettingsJson(sm, markDirty: true);
       }
       onLocalChange?.call();
+      final b = _budgets.length;
       return n == 0
-          ? 'Nothing new to restore: your data is already up to date.'
-          : 'Restored $n transaction${n == 1 ? '' : 's'}.';
+          ? 'No new transactions. Budgets and categories restored ($b budgets).'
+          : 'Restored $n transaction${n == 1 ? '' : 's'}, $b budgets.';
     } catch (_) {
       return 'Could not read this file.';
     }
