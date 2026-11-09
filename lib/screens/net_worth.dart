@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' hide Category;
 import 'package:intl/intl.dart';
 
 import '../store.dart';
+import 'debts.dart';
 import '../wealth.dart';
 import 'account_detail.dart';
 import 'add_account.dart';
@@ -223,8 +224,10 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
         final labels = [for (final p in series) DateFormat('MMM').format(p.date)];
         final prevMonth = series.length >= 2 ? series[series.length - 2].value : 0.0;
         final first = series.first.value;
-        final monthChange = w.netWorthOf(f) - prevMonth;
-        final rangeChange = w.netWorthOf(f) - first;
+        final owed = f == null ? store.totalOwed : 0.0;
+        final nw = w.netWorthOf(f) - owed;
+        final monthChange = nw - prevMonth;
+        final rangeChange = nw - first;
         final title = f == null ? 'Family net worth' : '${w.ownerName(f)}${f == Wealth.joint ? '' : "'s"} net worth';
 
         return Scaffold(
@@ -292,10 +295,21 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                     children: [
                       Text(title, style: const TextStyle(color: Colors.white)),
                       const SizedBox(height: 4),
-                      Text(wMoney(store, w.netWorthOf(f)),
+                      Text(wMoney(store, nw),
                           style: text.headlineLarge?.copyWith(
                               color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
+                      if (owed > 0)
+                        InkWell(
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => DebtsScreen(store: store))),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                                'After ${wMoney(store, owed)} owed in Debts (tap to open)',
+                                style: const TextStyle(color: Colors.white)),
+                          ),
+                        ),
                       if (!w.isEmpty)
                         Text(
                           '${monthChange >= 0 ? '▲' : '▼'} ${wMoney(store, monthChange.abs())} this month'

@@ -7,6 +7,8 @@ import '../forecast.dart';
 import 'add_txn.dart';
 import 'drill.dart';
 import 'income.dart';
+import 'debts.dart';
+import 'goals.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -35,6 +37,8 @@ class OverviewScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           children: [
             _HeroBanner(store: store),
+            const SizedBox(height: 10),
+            _QuickRow(store: store),
             const SizedBox(height: 12),
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
@@ -884,5 +888,32 @@ class _IncomeCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// One-tap buttons for the side-menu sections.
+class _QuickRow extends StatelessWidget {
+  final AppStore store;
+  const _QuickRow({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget b(IconData i, String l, Widget Function() page) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
+              onPressed: () =>
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => page())),
+              icon: Icon(i, size: 18),
+              label: Text(l, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        );
+    return Row(children: [
+      b(Icons.south_west, 'Income', () => IncomeScreen(store: store)),
+      b(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: store)),
+      b(Icons.savings_outlined, 'Goals', () => GoalsScreen(store: store)),
+    ]);
   }
 }
