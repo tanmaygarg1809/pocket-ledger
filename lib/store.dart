@@ -484,9 +484,15 @@ class AppStore extends ChangeNotifier {
     final cutoff = DateTime.now().subtract(const Duration(days: 14));
     final perDay = <String, double>{};
     for (final t in _txns) {
-      if (t.deleted || t.type != TxType.expense || isSaving(t.category) || t.date.isBefore(cutoff)) continue;
+      if (t.deleted || t.date.isBefore(cutoff)) continue;
+      if (t.type == TxType.expense) {
+        if (isSaving(t.category)) continue;
+      } else if (t.type != TxType.income) {
+        continue;
+      }
+      // Net per day: income counts up, spending counts down.
       final k = DateFormat('yyyy-MM-dd').format(t.date);
-      perDay[k] = (perDay[k] ?? 0) + t.amount;
+      perDay[k] = (perDay[k] ?? 0) + (t.type == TxType.income ? t.amount : -t.amount);
     }
     await p.setString('widget_days', jsonEncode(perDay));
   }

@@ -279,7 +279,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
-    final last = _editing || _mode == 2 ? null : store.lastTxn(_type);
     return Scaffold(
       appBar: AppBar(
         title: Text(_editing ? 'Edit transaction' : 'New transaction'),
@@ -330,24 +329,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                 child: Text(
                     'A refund is taken off the category it was spent from, so you see what you really spent.'),
               ),
-            if (last != null) ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: ActionChip(
-                  avatar: const Icon(Icons.replay, size: 18),
-                  label: Text(
-                      'Same as last time: ${store.money(last.amount)} · ${last.payee.isNotEmpty ? last.payee : last.category}'),
-                  onPressed: () => setState(() {
-                    _amount.text = last.amount.toStringAsFixed(2);
-                    _category = last.category;
-                    _categoryTouched = true;
-                    _note.text = last.note;
-                    _payeeCtrl?.text = last.payee;
-                  }),
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
             TextFormField(
               controller: _amount,

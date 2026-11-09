@@ -8,7 +8,6 @@ import 'add_txn.dart';
 import 'drill.dart';
 import 'income.dart';
 import 'debts.dart';
-import 'goals.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -741,16 +740,8 @@ class _HeroBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final hello = now.hour < 12 ? 'Good morning' : (now.hour < 18 ? 'Good afternoon' : 'Good evening');
-    final (next, _) = store.nextPay;
-    final today = DateTime(now.year, now.month, now.day);
     final lines = <String>[];
-    if (next != null) {
-      final d = next.difference(today).inDays;
-      lines.add(d == 0
-          ? 'Payday today'
-          : 'Payday ${DateFormat('EEE d MMM').format(next)} · $d day${d == 1 ? '' : 's'} to go');
-    }
-    if (lines.isEmpty) lines.add('Add your first expense to get started');
+    if (lines.isEmpty) lines.add('Record income and spending whenever suits you');
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -818,8 +809,6 @@ class _IncomeCard extends StatelessWidget {
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     final total = items.fold(0.0, (a, t) => a + t.amount);
-    final (next, _) = store.nextPay;
-    final guess = store.salaryGuess;
     const teal = Color(0xFF0F766E);
     return Card(
       child: Padding(
@@ -860,13 +849,6 @@ class _IncomeCard extends StatelessWidget {
                     style: const TextStyle(color: teal, fontWeight: FontWeight.w600)),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => AddTxnScreen(store: store, existing: t))),
-              ),
-            if (store.isCurrentMonth && next != null && guess > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                    'Next pay ${DateFormat('EEE d MMM').format(next)}, about ${store.money(guess)}',
-                    style: Theme.of(context).textTheme.bodySmall),
               ),
             const SizedBox(height: 8),
             Row(
@@ -913,7 +895,6 @@ class _QuickRow extends StatelessWidget {
     return Row(children: [
       b(Icons.south_west, 'Income', () => IncomeScreen(store: store)),
       b(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: store)),
-      b(Icons.savings_outlined, 'Goals', () => GoalsScreen(store: store)),
     ]);
   }
 }

@@ -75,11 +75,6 @@ class Reminders {
         }
       }
 
-      final (next, _) = store.nextPay;
-      if (next != null) {
-        await at(DateTime(next.year, next.month, next.day, 9), 'Payday',
-            'Your pay is due today. Check it has arrived.');
-      }
     } catch (_) {
       // Reminders are a convenience: never break the app over them.
     }

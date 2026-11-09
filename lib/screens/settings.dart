@@ -13,9 +13,7 @@ import '../excel_backup.dart';
 import '../app_lock.dart';
 import '../reminders.dart';
 import 'forecast_screen.dart';
-import 'goals.dart';
 import 'price_book.dart';
-import 'payday.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import 'auth.dart';
@@ -317,20 +315,6 @@ class SettingsScreen extends StatelessWidget {
               subtitle: const Text('Where your balance is heading in 30, 60 and 90 days'),
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => ForecastScreen(store: store))),
-            ),
-            ListTile(
-              leading: const Icon(Icons.payments_outlined),
-              title: const Text('Pay date'),
-              subtitle: Text('Day ${store.payDay}, or the Friday before a weekend'),
-              onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => PaydayScreen(store: store))),
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_events_outlined),
-              title: const Text('Savings goals'),
-              subtitle: Text('${store.goals.length} goal${store.goals.length == 1 ? '' : 's'} · ${store.badges.where((b) => b.$3).length} badges'),
-              onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => GoalsScreen(store: store))),
             ),
             ListTile(
               leading: const Icon(Icons.call_split),

@@ -13,7 +13,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/** Home-screen widget: spent today, spent this week, and a + to quick-add. */
+/** Home-screen widget: net today and this week (income +, spending -), and a + to quick-add. */
 class QuickAddWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -42,6 +42,7 @@ class QuickAddWidget : AppWidgetProvider() {
             val currency = prefs.getString("flutter.currency_v1", "£") ?: "£"
             val (today, week) = totals(prefs)
             views.setTextViewText(R.id.widget_total, money(currency, today))
+            views.setTextColor(R.id.widget_total, if (today < 0) 0xFFC0392B.toInt() else 0xFF0A8A7C.toInt())
             views.setTextViewText(R.id.widget_label, "today")
             views.setTextViewText(R.id.widget_week, "This week " + money(currency, week))
 
@@ -57,9 +58,9 @@ class QuickAddWidget : AppWidgetProvider() {
         }
 
         private fun money(currency: String, v: Double): String =
-            currency + String.format(Locale.getDefault(), "%,.2f", v)
+            (if (v < 0) "-" else "+") + currency + String.format(Locale.getDefault(), "%,.2f", Math.abs(v))
 
-        /** Spending today and since Monday, from the same data the app saves.
+        /** Net (income minus spending) today and since Monday, from the same data the app saves.
          *  Money moved to savings is not counted. */
         private fun totals(prefs: SharedPreferences): Pair<Double, Double> {
             val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
