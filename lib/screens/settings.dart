@@ -41,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
           'pocket-ledger-${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
       final file = File('${dir.path}/$name');
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], text: 'Pocket Ledger backup');
+      await Share.shareXFiles([XFile(file.path)], text: 'Kharcha backup');
     } catch (_) {
       if (context.mounted) _snack(context, 'Could not create the backup file.');
     }
@@ -282,7 +282,7 @@ class SettingsScreen extends StatelessWidget {
               value: store.remindOn,
               onChanged: (v) async {
                 if (v && !await Reminders.askPermission()) {
-                  if (context.mounted) _snack(context, 'Allow notifications for Pocket Ledger in phone settings.');
+                  if (context.mounted) _snack(context, 'Allow notifications for Kharcha in phone settings.');
                   return;
                 }
                 await store.setReminders(on: v);
@@ -381,7 +381,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const ListTile(
               leading: Icon(Icons.info_outline),
-              title: Text('Pocket Ledger 1.2.0'),
+              title: Text('Kharcha 1.2.0'),
               subtitle: Text(
                   'For personal record-keeping only. Not financial advice.'),
             ),

@@ -28,6 +28,14 @@ if 'QuickAddActivity' not in s:
     open(p, 'w').write(s)
 PY
 
+# App name shown under the icon.
+python3 - <<'PY'
+p = 'android/app/src/main/AndroidManifest.xml'
+s = open(p).read()
+s = s.replace('android:label="pocket_ledger"', 'android:label="Kharcha"')
+open(p, 'w').write(s)
+PY
+
 # Keep the encrypted data out of Android's cloud auto-backup (its key never leaves the phone).
 python3 - <<'PY'
 p = 'android/app/src/main/AndroidManifest.xml'
@@ -181,6 +189,6 @@ flutter test || echo "WARNING: tests failed (continuing)"
 
 echo
 echo "Setup OK. App id: $PKG"
-echo "Run on a phone: flutter run. Then long-press the home screen > Widgets > Pocket Ledger."
+echo "Run on a phone: flutter run. Then long-press the home screen > Widgets > Kharcha."
 echo "Accounts & sync: run the Firebase steps in PLAY_STORE_GUIDE.md (section 2). Until then the app works without accounts."
 echo "Next: follow PLAY_STORE_GUIDE.md (signing + build + upload)."

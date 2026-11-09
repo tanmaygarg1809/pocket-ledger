@@ -84,7 +84,7 @@ class _PocketLedgerAppState extends State<PocketLedgerApp>
   Future<void> _unlock() async {
     if (_authing) return;
     _authing = true;
-    final ok = await AppLock.authenticate('Unlock Pocket Ledger');
+    final ok = await AppLock.authenticate('Unlock Kharcha');
     _authing = false;
     if (ok && mounted) setState(() => _locked = false);
   }
@@ -110,7 +110,7 @@ class _PocketLedgerAppState extends State<PocketLedgerApp>
     return ListenableBuilder(
       listenable: widget.store,
       builder: (context, _) => MaterialApp(
-        title: 'Pocket Ledger',
+        title: 'Kharcha',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

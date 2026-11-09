@@ -35,7 +35,7 @@ class ExcelBackup {
     final first = ex.tables.keys.first;
 
     _sheet(ex, 'About', [
-      'Pocket Ledger backup'
+      'Kharcha backup'
     ], [
       ['Made on ${_stamp.format(DateTime.now())}'],
       ['Load this file back with Settings > Restore from a file.'],
@@ -139,7 +139,7 @@ class ExcelBackup {
       return 'Could not read this Excel file.';
     }
     if (!ex.tables.containsKey('Transactions')) {
-      return 'This is not a Pocket Ledger backup (no Transactions sheet).';
+      return 'This is not a Kharcha backup (no Transactions sheet).';
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     var skipped = 0;

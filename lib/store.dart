@@ -1462,7 +1462,7 @@ class AppStore extends ChangeNotifier {
     try {
       final j = jsonDecode(text);
       if (j is! Map || j['app'] != 'pocket_ledger') {
-        return 'This is not a Pocket Ledger backup.';
+        return 'This is not a Kharcha backup.';
       }
       final list = (j['txns'] as List)
           .map((e) => Txn.fromJson(Map<String, dynamic>.from(e as Map)))

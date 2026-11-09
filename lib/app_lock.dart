@@ -41,7 +41,7 @@ class LockScreen extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 56, color: scheme.primary),
             const SizedBox(height: 12),
-            Text('Pocket Ledger is locked',
+            Text('Kharcha is locked',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16),
             FilledButton.icon(

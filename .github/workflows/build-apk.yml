@@ -32,5 +32,5 @@ jobs:
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk PocketLedger.apk
           gh release create "build-${{ github.run_number }}" PocketLedger.apk \
-            --title "Pocket Ledger build ${{ github.run_number }}" \
+            --title "Kharcha build ${{ github.run_number }}" \
             --notes "Open PocketLedger.apk on your phone to install. Installing over an older build keeps your data."
