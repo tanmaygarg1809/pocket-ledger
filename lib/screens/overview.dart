@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models.dart';
+import '../forecast.dart';
+import 'add_txn.dart';
 import 'drill.dart';
 import 'splitwise.dart';
 import '../store.dart';
@@ -68,11 +70,14 @@ class OverviewScreen extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
+                          child: InkWell(
+                            onTap: () => _openIncome(context, store),
                           child: _Stat(
                             label: 'Income',
                             value: store.money(income),
                             icon: Icons.arrow_downward,
                             color: Colors.green.shade700,
+                          ),
                           ),
                         ),
                         Expanded(
@@ -103,6 +108,8 @@ class OverviewScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            _IncomeCard(store: store),
             if (store.isCurrentMonth) ...[
               const SizedBox(height: 12),
               _BudgetProgressCard(store: store),
@@ -729,15 +736,9 @@ class _HeroBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final hello = now.hour < 12 ? 'Good morning' : (now.hour < 18 ? 'Good afternoon' : 'Good evening');
-    final bp = store.budgetProgress(BudgetPeriod.month);
     final (next, _) = store.nextPay;
     final today = DateTime(now.year, now.month, now.day);
     final lines = <String>[];
-    if (bp != null) {
-      lines.add(bp.over
-          ? 'Over budget this month by ${store.money(bp.spent - bp.limit)}'
-          : '${store.money(bp.limit - bp.spent)} left to spend this month');
-    }
     if (next != null) {
       final d = next.difference(today).inDays;
       lines.add(d == 0
@@ -778,6 +779,104 @@ class _HeroBanner extends StatelessWidget {
             child: const Icon(Icons.wallet, color: Colors.white),
           ),
         ],
+      ),
+    );
+  }
+}
+
+void _openIncome(BuildContext context, AppStore store) {
+  final m = store.month;
+  Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DrillScreen(
+            store: store,
+            title: 'Income',
+            subtitle: DateFormat('MMMM yyyy').format(m),
+            test: (t) =>
+                t.type == TxType.income && t.date.year == m.year && t.date.month == m.month,
+          )));
+}
+
+/// Money coming in this month: total, each payment, and the next expected pay.
+class _IncomeCard extends StatelessWidget {
+  final AppStore store;
+  const _IncomeCard({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = store.month;
+    final items = store.all
+        .where((t) => t.type == TxType.income && t.date.year == m.year && t.date.month == m.month)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final total = items.fold(0.0, (a, t) => a + t.amount);
+    final (next, _) = store.nextPay;
+    final guess = store.salaryGuess;
+    const teal = Color(0xFF0F766E);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Color(0xFFD3F5F0),
+                  child: Icon(Icons.south_west, size: 18, color: teal),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Income this ${store.isCurrentMonth ? 'month' : 'period'}',
+                      style: Theme.of(context).textTheme.titleSmall),
+                ),
+                Text(store.money(total),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: teal, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (items.isEmpty)
+              Text('No income recorded yet.',
+                  style: Theme.of(context).textTheme.bodyMedium),
+            for (final t in items.take(4))
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(t.payee.isNotEmpty ? t.payee : (t.note.isNotEmpty ? t.note : t.category)),
+                subtitle: Text('${t.category} · ${DateFormat('EEE d MMM').format(t.date)}'),
+                trailing: Text('+${store.money(t.amount)}',
+                    style: const TextStyle(color: teal, fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => AddTxnScreen(store: store, existing: t))),
+              ),
+            if (store.isCurrentMonth && next != null && guess > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                    'Next pay ${DateFormat('EEE d MMM').format(next)}, about ${store.money(guess)}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => AddTxnScreen(store: store, initialMode: 1))),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add income'),
+                ),
+                const Spacer(),
+                if (items.length > 4)
+                  TextButton(
+                      onPressed: () => _openIncome(context, store),
+                      child: Text('See all ${items.length}')),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

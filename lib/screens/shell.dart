@@ -92,12 +92,31 @@ class _ShellState extends State<Shell> {
     return Scaffold(
       body: SafeArea(child: pages[_index]),
       floatingActionButton: _index <= 1
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => AddTxnScreen(store: s)),
-              ),
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'add_income',
+                  backgroundColor: const Color(0xFF14B8A6),
+                  foregroundColor: Colors.white,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => AddTxnScreen(store: s, initialMode: 1)),
+                  ),
+                  icon: const Icon(Icons.south_west),
+                  label: const Text('Income'),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'add_expense',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => AddTxnScreen(store: s)),
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Expense'),
+                ),
+              ],
             )
           : null,
       bottomNavigationBar: NavigationBar(

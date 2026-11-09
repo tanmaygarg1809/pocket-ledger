@@ -10,7 +10,9 @@ import 'category_picker.dart';
 class AddTxnScreen extends StatefulWidget {
   final AppStore store;
   final Txn? existing;
-  const AddTxnScreen({super.key, required this.store, this.existing});
+  /// 0 = expense, 1 = income (used when adding a new entry).
+  final int initialMode;
+  const AddTxnScreen({super.key, required this.store, this.existing, this.initialMode = 0});
 
   @override
   State<AddTxnScreen> createState() => _AddTxnScreenState();
@@ -43,7 +45,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     super.initState();
     final e = widget.existing;
     if (e == null) {
-      _mode = 0;
+      _mode = widget.initialMode;
     } else if (e.type == TxType.income) {
       _mode = 1;
     } else {
