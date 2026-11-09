@@ -320,7 +320,16 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                   ),
                 ),
               ),
-              if (w.isEmpty)
+              if (w.isEmpty && owed > 0) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                      child: _Tile('Assets', wMoney(store, 0), null)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _Tile('Debts', '-${wMoney(store, owed)}', _coral)),
+                ]),
+                ..._loans(context, owed),
+              ] else if (w.isEmpty)
                 Card(
                   margin: const EdgeInsets.only(top: 12),
                   child: Padding(
@@ -381,12 +390,17 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                         child: _Tile(
-                            'Debts', w.debtsOf(f) > 0 ? '-${wMoney(store, w.debtsOf(f))}' : wMoney(store, 0), _coral)),
+                            'Debts',
+                            (w.debtsOf(f) + owed) > 0
+                                ? '-${wMoney(store, w.debtsOf(f) + owed)}'
+                                : wMoney(store, 0),
+                            _coral)),
                   ],
                 ),
                 if (f == null && w.hasFamily) _ByPerson(store: store),
                 _Allocation(store: store, owner: f),
                 for (final g in wealthGroups) ..._group(context, g, scheme, f),
+                if (owed > 0) ..._loans(context, owed),
               ],
               _Policies(store: store),
             ],
@@ -395,6 +409,32 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
       },
     );
   }
+
+  List<Widget> _loans(BuildContext context, double owed) => [
+    const Divider(height: 28),
+    Row(children: [
+      Expanded(
+        child: Text('LOANS YOU OWE',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold, letterSpacing: 0.6)),
+      ),
+      Text('-${wMoney(store, owed)}',
+          style: const TextStyle(fontWeight: FontWeight.bold)),
+    ]),
+    for (final d in store.debts.where((d) => !d.cleared))
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => DebtsScreen(store: store))),
+        leading: const CircleAvatar(
+            backgroundColor: _coral,
+            child: Icon(Icons.account_balance_outlined, color: Colors.white, size: 20)),
+        title: Text(d.lender, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('${(d.fraction * 100).round()}% repaid'),
+        trailing: Text('-${wMoney(store, d.left)}',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: _coral)),
+      ),
+      ];
 
   List<Widget> _group(BuildContext context, String g, ColorScheme scheme, String? f) {
     final items = store.wealth.listed
