@@ -1,6 +1,8 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'models.dart';
+
 /// What could be read from a receipt photo. Any field may be null: the person
 /// always checks and corrects before saving.
 class ReceiptInfo {
@@ -129,6 +131,55 @@ Future<(String, ReceiptInfo)?> scanReceipt() async {
   try {
     final result = await recognizer.processImage(InputImage.fromFilePath(shot.path));
     return (shot.path, parseReceiptText(result.text));
+  } finally {
+    await recognizer.close();
+  }
+}
+
+/// What could be read from a shelf label or product photo.
+class LabelInfo {
+  final String? name;
+  final double? price;
+  final (double, String)? pack;
+  const LabelInfo({this.name, this.price, this.pack});
+}
+
+LabelInfo parseLabelText(String text) {
+  final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+  final money = RegExp(r'£?\s*(\d{1,4}[.,]\d{2})');
+  double? price;
+  for (final l in lines) {
+    final low = l.toLowerCase();
+    if (low.contains('per ') || low.contains('/kg') || low.contains('/100') || low.contains('/l') || low.contains('was ')) continue;
+    final m = money.firstMatch(l);
+    if (m != null) {
+      price = double.tryParse(m.group(1)!.replaceAll(',', '.'));
+      if (price != null) break;
+    }
+  }
+  String? name;
+  for (final l in lines) {
+    final letters = RegExp(r'[A-Za-z]').allMatches(l).length;
+    final low = l.toLowerCase();
+    if (letters >= 3 && !money.hasMatch(l) && !low.contains('per ') && !low.contains('offer') && !low.contains('clubcard')) {
+      name = l.split(' ').where((w) => w.isNotEmpty).map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+      break;
+    }
+  }
+  return LabelInfo(name: name, price: price, pack: guessPack(text));
+}
+
+/// Takes (or picks) a photo of an item or its shelf label and reads it on the phone.
+Future<(String, LabelInfo)?> scanLabel({bool gallery = false}) async {
+  final shot = await ImagePicker()
+      .pickImage(source: gallery ? ImageSource.gallery : ImageSource.camera, imageQuality: 85);
+  if (shot == null) return null;
+  final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  try {
+    final result = await recognizer.processImage(InputImage.fromFilePath(shot.path));
+    return (shot.path, parseLabelText(result.text));
+  } catch (_) {
+    return (shot.path, const LabelInfo());
   } finally {
     await recognizer.close();
   }

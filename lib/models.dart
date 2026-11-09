@@ -293,7 +293,7 @@ class Goal {
       );
 }
 
-/// One price seen for an item at a shop (from a receipt or typed in).
+/// One price seen for an item at a shop (from a receipt, a shelf label or typed in).
 class PricePoint {
   final String id;
   final String item;
@@ -301,16 +301,64 @@ class PricePoint {
   final String shop;
   final DateTime date;
 
+  /// Pack size: [qty] in [unit] ('g', 'kg', 'ml', 'l', 'pc'); null when unknown.
+  final double? qty;
+  final String unit;
+
+  /// Branch or area, e.g. "Hounslow".
+  final String place;
+
+  /// Photo of the item or shelf label (file name in the attachments folder).
+  final String? photo;
+
   const PricePoint({
     required this.id,
     required this.item,
     required this.price,
     required this.shop,
     required this.date,
+    this.qty,
+    this.unit = '',
+    this.place = '',
+    this.photo,
   });
 
-  /// Same product, whatever the capitalisation or spacing.
-  String get key => item.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  /// Same product, whatever the capitalisation or spacing, ignoring the pack size.
+  String get key => item
+      .toLowerCase()
+      .replaceAll(RegExp(r'\b\d+(\.\d+)?\s*(kg|g|ml|l|ltr|litres?|pack|pk|pcs?|x)\b'), '')
+      .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  /// 'kg' (weight), 'l' (volume), 'each' (pieces) or '' when the pack size is unknown.
+  String get family {
+    if (qty == null || qty! <= 0) return '';
+    if (unit == 'g' || unit == 'kg') return 'kg';
+    if (unit == 'ml' || unit == 'l') return 'l';
+    if (unit == 'pc') return 'each';
+    return '';
+  }
+
+  /// Price per kg, per litre or per piece.
+  double? get perBase {
+    if (family.isEmpty) return null;
+    final base = (unit == 'g' || unit == 'ml') ? qty! / 1000 : qty!;
+    return price / base;
+  }
+
+  /// Price per 100 g or per 100 ml, for small packs.
+  double? get per100 {
+    final b = perBase;
+    if (b == null || family == 'each') return null;
+    return b / 10;
+  }
+
+  String get packLabel {
+    if (family.isEmpty) return '';
+    final q = qty! == qty!.roundToDouble() ? qty!.toStringAsFixed(0) : qty!.toString();
+    return unit == 'pc' ? '$q pack' : '$q$unit';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -318,6 +366,10 @@ class PricePoint {
         'price': price,
         'shop': shop,
         'date': date.toIso8601String(),
+        'qty': qty,
+        'unit': unit,
+        'place': place,
+        'photo': photo,
       };
 
   factory PricePoint.fromJson(Map<String, dynamic> j) => PricePoint(
@@ -326,5 +378,35 @@ class PricePoint {
         price: (j['price'] as num).toDouble(),
         shop: (j['shop'] as String?) ?? '',
         date: DateTime.tryParse((j['date'] as String?) ?? '') ?? DateTime.now(),
+        qty: (j['qty'] as num?)?.toDouble(),
+        unit: (j['unit'] as String?) ?? '',
+        place: (j['place'] as String?) ?? '',
+        photo: j['photo'] as String?,
       );
+}
+
+/// Finds a pack size in an item name: "Milk 2L", "Flour 1.5kg", "Cheese 400g", "Eggs 6 pack".
+(double, String)? guessPack(String name) {
+  final m = RegExp(r'(\d+(?:[.,]\d+)?)\s*(kg|g|ml|cl|ltr|litres?|l|pack|pk|pcs?|x)\b', caseSensitive: false)
+      .firstMatch(name);
+  if (m == null) return null;
+  var q = double.tryParse(m.group(1)!.replaceAll(',', '.'));
+  if (q == null || q <= 0) return null;
+  switch (m.group(2)!.toLowerCase()) {
+    case 'kg':
+      return (q, 'kg');
+    case 'g':
+      return (q, 'g');
+    case 'ml':
+      return (q, 'ml');
+    case 'cl':
+      return (q * 10, 'ml');
+    case 'l':
+    case 'ltr':
+    case 'litre':
+    case 'litres':
+      return (q, 'l');
+    default:
+      return (q, 'pc');
+  }
 }

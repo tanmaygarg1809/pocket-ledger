@@ -208,7 +208,15 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     await widget.store.addPrices([
       for (var i = 0; i < info.items.length; i++)
         if (chosen[i])
-          PricePoint(id: 'p${now}_$i', item: info.items[i].$1, price: info.items[i].$2, shop: name, date: when),
+          PricePoint(
+            id: 'p${now}_$i',
+            item: info.items[i].$1,
+            price: info.items[i].$2,
+            shop: name,
+            date: when,
+            qty: guessPack(info.items[i].$1)?.$1,
+            unit: guessPack(info.items[i].$1)?.$2 ?? '',
+          ),
     ]);
   }
 
