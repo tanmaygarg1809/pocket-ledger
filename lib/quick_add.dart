@@ -96,7 +96,6 @@ class _QuickAddSheetState extends State<QuickAddSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final last = widget.store.lastTxn(_type);
     return Scaffold(
       backgroundColor: Colors.black54,
       body: GestureDetector(
@@ -156,20 +155,6 @@ class _QuickAddSheetState extends State<QuickAddSheet> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            if (last != null)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ActionChip(
-                                  avatar: const Icon(Icons.replay, size: 18),
-                                  label: Text(
-                                      'Last: ${widget.store.money(last.amount)} · ${last.category}'),
-                                  onPressed: () => setState(() {
-                                    _amount.text =
-                                        last.amount.toStringAsFixed(2);
-                                    _category = last.category;
-                                  }),
-                                ),
-                              ),
                             for (final c in _cats)
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
