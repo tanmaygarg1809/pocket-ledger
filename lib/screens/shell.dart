@@ -6,6 +6,9 @@ import '../store.dart';
 import 'add_txn.dart';
 import 'auth.dart';
 import 'budgets.dart';
+import 'debts.dart';
+import 'goals.dart';
+import 'income.dart';
 import 'overview.dart';
 import 'settings.dart';
 import 'net_worth.dart';
@@ -89,7 +92,34 @@ class _ShellState extends State<Shell> {
       NetWorthScreen(store: s),
       SettingsScreen(store: s, cloud: widget.cloud),
     ];
+    Widget item(IconData icon, String label, Widget Function() page) => ListTile(
+          leading: Icon(icon),
+          title: Text(label),
+          onTap: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => page()));
+          },
+        );
     return Scaffold(
+      drawer: Drawer(
+        child: SafeArea(
+          child: ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                child: Text('Kharcha',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+              ),
+              item(Icons.south_west, 'Income', () => IncomeScreen(store: s)),
+              item(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: s)),
+              item(Icons.savings_outlined, 'Savings goals', () => GoalsScreen(store: s)),
+            ],
+          ),
+        ),
+      ),
       body: SafeArea(child: pages[_index]),
       floatingActionButton: _index <= 1
           ? Column(

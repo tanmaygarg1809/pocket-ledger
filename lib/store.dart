@@ -89,6 +89,7 @@ class AppStore extends ChangeNotifier {
   static const _kTheme = 'theme_v1';
   static const _kWealth = 'wealth_v1';
   static const _kGoals = 'goals_v1';
+  static const _kDebts = 'debts_v1';
   static const _kPay = 'pay_v1';
   static const _kPrices = 'prices_v1';
   static const _kLock = 'app_lock_v1';
@@ -99,6 +100,7 @@ class AppStore extends ChangeNotifier {
   final List<Txn> _txns = []; // includes deleted tombstones
   final Map<String, double> _budgets = {};
   final List<Goal> _goals = [];
+  final List<Debt> _debts = [];
   final List<PricePoint> _prices = [];
 
   // ------------------------------------------------------------ price book
@@ -255,6 +257,37 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  // ------------------------------------------------------------ debts
+  List<Debt> get debts => List.unmodifiable(_debts);
+  double get totalOwed => _debts.fold(0.0, (a, d) => a + d.left);
+  double get monthlyDebtPayments =>
+      _debts.where((d) => !d.cleared).fold(0.0, (a, d) => a + d.monthly);
+
+  Future<void> saveDebt(Debt d) {
+    final i = _debts.indexWhere((e) => e.id == d.id);
+    if (i >= 0) {
+      _debts[i] = d;
+    } else {
+      _debts.add(d);
+    }
+    _touchSettings();
+    return _changed();
+  }
+
+  Future<void> removeDebt(String id) {
+    _debts.removeWhere((e) => e.id == id);
+    _touchSettings();
+    return _changed();
+  }
+
+  /// Records a repayment (negative undoes one).
+  Future<void> payDebt(String id, double amount) {
+    final i = _debts.indexWhere((e) => e.id == id);
+    if (i < 0) return Future.value();
+    final v = _debts[i].paid + amount;
+    return saveDebt(_debts[i].copyWith(paid: v < 0 ? 0 : v));
+  }
+
   // ------------------------------------------------------------ savings goals
   List<Goal> get goals => List.unmodifiable(_goals);
 
@@ -381,11 +414,20 @@ class AppStore extends ChangeNotifier {
       } catch (_) {}
     }
     _goals.clear();
+    _debts.clear();
     final gj = _rd(p, _kGoals);
     if (gj != null) {
       try {
         _goals.addAll((jsonDecode(gj) as List)
             .map((e) => Goal.fromJson(Map<String, dynamic>.from(e as Map))));
+      } catch (_) {}
+    }
+    _debts.clear();
+    final dj = _rd(p, _kDebts);
+    if (dj != null) {
+      try {
+        _debts.addAll((jsonDecode(dj) as List)
+            .map((e) => Debt.fromJson(Map<String, dynamic>.from(e as Map))));
       } catch (_) {}
     }
     wealth.clear();
@@ -425,6 +467,7 @@ class AppStore extends ChangeNotifier {
     await p.setString(_kCurrency, currency);
     await p.setString(_kTheme, themeMode);
     await _wr(p, _kWealth, jsonEncode(wealth.toJson()));
+    await _wr(p, _kDebts, jsonEncode(_debts.map((e) => e.toJson()).toList()));
     await _wr(p, _kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
     await _wr(p, _kPay, jsonEncode(_payJson()));
     await _wr(p, _kPrices, jsonEncode(_prices.map((e) => e.toJson()).toList()));
@@ -1295,6 +1338,7 @@ class AppStore extends ChangeNotifier {
     _budgets.clear();
     _rules.clear();
     _goals.clear();
+    _debts.clear();
     for (final a in wealth.listed) {
       wealth.upsertAccount(a.copyWith(deleted: true, updatedAt: _now));
     }
@@ -1313,6 +1357,7 @@ class AppStore extends ChangeNotifier {
     _budgets.clear();
     _rules.clear();
     _goals.clear();
+    _debts.clear();
     _prices.clear();
     _cats = defaultCategories();
     wealth.clear();
@@ -1375,6 +1420,7 @@ class AppStore extends ChangeNotifier {
         'categories': _cats.map((e) => e.toJson()).toList(),
         'wealth': wealth.toJson(),
         'goals': _goals.map((e) => e.toJson()).toList(),
+        'debts': _debts.map((e) => e.toJson()).toList(),
         'pay': _payJson(),
         'prices': _prices.map((e) => e.toJson()).toList(),
         'u': _settingsU,
@@ -1415,6 +1461,12 @@ class AppStore extends ChangeNotifier {
       }
       if (j['pay'] is Map) {
         _applyPay(Map<String, dynamic>.from(j['pay'] as Map));
+      }
+      if (j['debts'] != null) {
+        _debts
+          ..clear()
+          ..addAll((j['debts'] as List)
+              .map((e) => Debt.fromJson(Map<String, dynamic>.from(e as Map))));
       }
       if (j['goals'] != null) {
         _goals

@@ -410,3 +410,58 @@ class PricePoint {
       return (q, 'pc');
   }
 }
+
+/// Money owed to someone (loan, card, family...).
+class Debt {
+  final String id;
+  final String lender;
+  final double amount; // original amount borrowed
+  final double paid; // repaid so far
+  final double monthly; // planned monthly repayment (0 = none)
+  final DateTime? due; // final due date
+  final String note;
+
+  const Debt({
+    required this.id,
+    required this.lender,
+    required this.amount,
+    this.paid = 0,
+    this.monthly = 0,
+    this.due,
+    this.note = '',
+  });
+
+  double get left => (amount - paid) < 0 ? 0 : amount - paid;
+  double get fraction => amount <= 0 ? 0 : (paid / amount).clamp(0.0, 1.0).toDouble();
+  bool get cleared => amount > 0 && paid >= amount;
+
+  Debt copyWith({String? lender, double? amount, double? paid, double? monthly, DateTime? due, bool clearDue = false, String? note}) => Debt(
+        id: id,
+        lender: lender ?? this.lender,
+        amount: amount ?? this.amount,
+        paid: paid ?? this.paid,
+        monthly: monthly ?? this.monthly,
+        due: clearDue ? null : (due ?? this.due),
+        note: note ?? this.note,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'lender': lender,
+        'amount': amount,
+        'paid': paid,
+        'monthly': monthly,
+        'due': due?.toIso8601String(),
+        'note': note,
+      };
+
+  factory Debt.fromJson(Map<String, dynamic> j) => Debt(
+        id: j['id'] as String,
+        lender: j['lender'] as String,
+        amount: (j['amount'] as num).toDouble(),
+        paid: (j['paid'] as num?)?.toDouble() ?? 0,
+        monthly: (j['monthly'] as num?)?.toDouble() ?? 0,
+        due: j['due'] == null ? null : DateTime.tryParse(j['due'] as String),
+        note: (j['note'] as String?) ?? '',
+      );
+}

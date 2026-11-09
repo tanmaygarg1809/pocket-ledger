@@ -6,6 +6,7 @@ import '../models.dart';
 import '../forecast.dart';
 import 'add_txn.dart';
 import 'drill.dart';
+import 'income.dart';
 import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -772,11 +773,15 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(color: Color(0xFFFF6B5E), shape: BoxShape.circle),
-            child: const Icon(Icons.wallet, color: Colors.white),
+          InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => Scaffold.maybeOf(context)?.openDrawer(),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(color: Color(0xFFFF6B5E), shape: BoxShape.circle),
+              child: const Icon(Icons.menu, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -869,10 +874,10 @@ class _IncomeCard extends StatelessWidget {
                   label: const Text('Add income'),
                 ),
                 const Spacer(),
-                if (items.length > 4)
-                  TextButton(
-                      onPressed: () => _openIncome(context, store),
-                      child: Text('See all ${items.length}')),
+                TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => IncomeScreen(store: store))),
+                    child: const Text('Year view')),
               ],
             ),
           ],
