@@ -31,6 +31,8 @@ class OverviewScreen extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           children: [
+            _HeroBanner(store: store),
+            const SizedBox(height: 12),
             _ModeSwitch(store: store),
             const SizedBox(height: 4),
             if (store.weekView)
@@ -95,7 +97,7 @@ class OverviewScreen extends StatelessWidget {
                     _TrendRow(
                       trend: store.monthTrend(store.month),
                       series: store.monthlySpendSeries(store.month),
-                      versus: 'last month',
+                      versus: 'last month (same days)',
                     ),
                   ],
                 ),
@@ -390,6 +392,7 @@ class _TrendRow extends StatelessWidget {
             ? 'About the same as $versus'
             : '${pct.abs().toStringAsFixed(0)}% ${down ? 'lower' : 'higher'} than $versus');
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Flexible(
           child: Container(
@@ -407,14 +410,14 @@ class _TrendRow extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(text,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                       style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
                 ),
               ],
             ),
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: 12),
         if (series.length > 1) _Sparkline(values: series),
       ],
     );
@@ -553,7 +556,7 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
             _TrendRow(
               trend: store.weekTrend(start),
               series: const [],
-              versus: 'last week',
+              versus: 'last week (same days)',
             ),
           ],
         ),
@@ -715,4 +718,67 @@ List<Widget> _weekChildren(BuildContext context, AppStore store) {
                 ))),
       ),
   ];
+}
+
+/// Friendly colourful strip at the top: greeting, what is left this month, and payday.
+class _HeroBanner extends StatelessWidget {
+  final AppStore store;
+  const _HeroBanner({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final hello = now.hour < 12 ? 'Good morning' : (now.hour < 18 ? 'Good afternoon' : 'Good evening');
+    final bp = store.budgetProgress(BudgetPeriod.month);
+    final (next, _) = store.nextPay;
+    final today = DateTime(now.year, now.month, now.day);
+    final lines = <String>[];
+    if (bp != null) {
+      lines.add(bp.over
+          ? 'Over budget this month by ${store.money(bp.spent - bp.limit)}'
+          : '${store.money(bp.limit - bp.spent)} left to spend this month');
+    }
+    if (next != null) {
+      final d = next.difference(today).inDays;
+      lines.add(d == 0
+          ? 'Payday today'
+          : 'Payday ${DateFormat('EEE d MMM').format(next)} · $d day${d == 1 ? '' : 's'} to go');
+    }
+    if (lines.isEmpty) lines.add('Add your first expense to get started');
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF5B3FD9), Color(0xFF8B6CF0)]),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$hello, ${DateFormat('EEEE d MMMM').format(now)}',
+                    style: const TextStyle(color: Color(0xFFE4DDFF), fontSize: 13)),
+                const SizedBox(height: 6),
+                for (final l in lines)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(l,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(color: Color(0xFFFF6B5E), shape: BoxShape.circle),
+            child: const Icon(Icons.wallet, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
 }
