@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_lock.dart';
 import 'cloud.dart';
+import 'crypto.dart';
 import 'reminders.dart';
 import 'quick_add.dart';
 import 'screens/shell.dart';
@@ -13,6 +14,7 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = AppStore();
+  await Crypto.init();
   await store.load();
   final cloud = CloudService(store);
   await cloud.init(); // quick; sync itself runs in the background
@@ -26,6 +28,7 @@ Future<void> main() async {
 Future<void> quickAddMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = AppStore();
+  await Crypto.init();
   await store.load();
   runApp(QuickAddApp(store: store));
 }

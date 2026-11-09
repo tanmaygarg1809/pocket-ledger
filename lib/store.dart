@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'crypto.dart';
 import 'models.dart';
 import 'wealth.dart';
 import 'widget_bridge.dart';
@@ -299,15 +300,32 @@ class AppStore extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------ loading
+  bool _decryptFailed = false;
+  bool _needsMigrate = false;
+
+  String? _rd(SharedPreferences p, String k) {
+    final v = p.getString(k);
+    if (v == null) return null;
+    if (Crypto.ready && !Crypto.isSealed(v)) _needsMigrate = true;
+    final o = Crypto.open(v);
+    if (o == null) _decryptFailed = true;
+    return o;
+  }
+
+  Future<void> _wr(SharedPreferences p, String k, String v) =>
+      p.setString(k, Crypto.seal(v));
+
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
+    _decryptFailed = false;
+    _needsMigrate = false;
     await p.reload(); // pick up changes made by the quick-add popup
     _prefs = p;
     currency = p.getString(_kCurrency) ?? '£';
     themeMode = p.getString(_kTheme) ?? 'light';
 
     _txns.clear();
-    final t = p.getString(_kTxns);
+    final t = _rd(p, _kTxns);
     if (t != null) {
       try {
         _txns.addAll((jsonDecode(t) as List)
@@ -317,7 +335,7 @@ class AppStore extends ChangeNotifier {
       }
     }
     _budgets.clear();
-    final b = p.getString(_kBudgets);
+    final b = _rd(p, _kBudgets);
     if (b != null) {
       try {
         (jsonDecode(b) as Map<String, dynamic>)
@@ -325,7 +343,7 @@ class AppStore extends ChangeNotifier {
       } catch (_) {}
     }
     _rules.clear();
-    final r = p.getString(_kRules);
+    final r = _rd(p, _kRules);
     if (r != null) {
       try {
         _rules.addAll((jsonDecode(r) as List)
@@ -333,7 +351,7 @@ class AppStore extends ChangeNotifier {
       } catch (_) {}
     }
     _cats = defaultCategories();
-    final c = p.getString(_kCats);
+    final c = _rd(p, _kCats);
     if (c != null) {
       try {
         final list = (jsonDecode(c) as List)
@@ -348,14 +366,14 @@ class AppStore extends ChangeNotifier {
     payDay = 25;
     payManualMonths = {12};
     payOverrides.clear();
-    final pj = p.getString(_kPay);
+    final pj = _rd(p, _kPay);
     if (pj != null) {
       try {
         _applyPay(Map<String, dynamic>.from(jsonDecode(pj) as Map));
       } catch (_) {}
     }
     _prices.clear();
-    final prj = p.getString(_kPrices);
+    final prj = _rd(p, _kPrices);
     if (prj != null) {
       try {
         _prices.addAll((jsonDecode(prj) as List)
@@ -363,7 +381,7 @@ class AppStore extends ChangeNotifier {
       } catch (_) {}
     }
     _goals.clear();
-    final gj = p.getString(_kGoals);
+    final gj = _rd(p, _kGoals);
     if (gj != null) {
       try {
         _goals.addAll((jsonDecode(gj) as List)
@@ -371,7 +389,7 @@ class AppStore extends ChangeNotifier {
       } catch (_) {}
     }
     wealth.clear();
-    final w = p.getString(_kWealth);
+    final w = _rd(p, _kWealth);
     if (w != null) {
       try {
         wealth.loadJson(Map<String, dynamic>.from(jsonDecode(w) as Map));
@@ -389,7 +407,7 @@ class AppStore extends ChangeNotifier {
 
     _sort();
     final created = materializeRecurring();
-    if (created) await _save();
+    if (created || _needsMigrate) await _save();
     notifyListeners();
     if (created) onLocalChange?.call();
   }
@@ -398,17 +416,18 @@ class AppStore extends ChangeNotifier {
 
   Future<void> _save() async {
     final p = _prefs;
-    if (p == null) return;
-    await p.setString(_kTxns, jsonEncode(_txns.map((e) => e.toJson()).toList()));
-    await p.setString(_kBudgets, jsonEncode(_budgets));
-    await p.setString(_kRules, jsonEncode(_rules.map((e) => e.toJson()).toList()));
-    await p.setString(_kCats, jsonEncode(_cats.map((e) => e.toJson()).toList()));
+    // If the stored data could not be decrypted, never overwrite it with empty data.
+    if (p == null || _decryptFailed) return;
+    await _wr(p, _kTxns, jsonEncode(_txns.map((e) => e.toJson()).toList()));
+    await _wr(p, _kBudgets, jsonEncode(_budgets));
+    await _wr(p, _kRules, jsonEncode(_rules.map((e) => e.toJson()).toList()));
+    await _wr(p, _kCats, jsonEncode(_cats.map((e) => e.toJson()).toList()));
     await p.setString(_kCurrency, currency);
     await p.setString(_kTheme, themeMode);
-    await p.setString(_kWealth, jsonEncode(wealth.toJson()));
-    await p.setString(_kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
-    await p.setString(_kPay, jsonEncode(_payJson()));
-    await p.setString(_kPrices, jsonEncode(_prices.map((e) => e.toJson()).toList()));
+    await _wr(p, _kWealth, jsonEncode(wealth.toJson()));
+    await _wr(p, _kGoals, jsonEncode(_goals.map((e) => e.toJson()).toList()));
+    await _wr(p, _kPay, jsonEncode(_payJson()));
+    await _wr(p, _kPrices, jsonEncode(_prices.map((e) => e.toJson()).toList()));
     await p.setString(_kDirty, jsonEncode(_dirty.toList()));
     await p.setInt(_kSettingsU, _settingsU);
     await p.setBool(_kSettingsDirty, _settingsDirty);
@@ -417,6 +436,16 @@ class AppStore extends ChangeNotifier {
     // categories are saving, so "today" and "this week" show spending only.
     await p.setString('widget_saving',
         jsonEncode(_cats.where((c) => c.saving).map((c) => c.name).toList()));
+    // The widget cannot read the encrypted entries, so give it only daily
+    // spending totals for the last two weeks (no payees, notes or categories).
+    final cutoff = DateTime.now().subtract(const Duration(days: 14));
+    final perDay = <String, double>{};
+    for (final t in _txns) {
+      if (t.deleted || t.type != TxType.expense || isSaving(t.category) || t.date.isBefore(cutoff)) continue;
+      final k = DateFormat('yyyy-MM-dd').format(t.date);
+      perDay[k] = (perDay[k] ?? 0) + t.amount;
+    }
+    await p.setString('widget_days', jsonEncode(perDay));
   }
 
   /// Save + notify + refresh the widget, without triggering a cloud sync.

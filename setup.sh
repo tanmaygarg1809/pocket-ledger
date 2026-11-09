@@ -28,6 +28,15 @@ if 'QuickAddActivity' not in s:
     open(p, 'w').write(s)
 PY
 
+# Keep the encrypted data out of Android's cloud auto-backup (its key never leaves the phone).
+python3 - <<'PY'
+p = 'android/app/src/main/AndroidManifest.xml'
+s = open(p).read()
+if 'allowBackup' not in s:
+    s = s.replace('<application', '<application android:allowBackup="false" android:fullBackupContent="false"', 1)
+    open(p, 'w').write(s)
+PY
+
 # Permissions + SDK level needed by cloud sync (release builds have no INTERNET by default).
 python3 - <<'PY'
 import re
@@ -165,7 +174,7 @@ for f in ('android/app/src/main/res/values/styles.xml', 'android/app/src/main/re
         open(f, 'w').write(t)
 PY
 
-flutter pub add firebase_core firebase_auth cloud_firestore excel local_auth:^2.3.0 flutter_local_notifications:^18.0.1 timezone image_picker google_mlkit_text_recognition
+flutter pub add firebase_core firebase_auth cloud_firestore excel local_auth:^2.3.0 flutter_local_notifications:^18.0.1 timezone image_picker google_mlkit_text_recognition flutter_secure_storage:^9.2.2 encrypt
 flutter pub get
 flutter analyze || echo "WARNING: analyze reported issues (continuing)"
 flutter test || echo "WARNING: tests failed (continuing)"

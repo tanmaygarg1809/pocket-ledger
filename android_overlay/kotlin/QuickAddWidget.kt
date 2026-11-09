@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.widget.RemoteViews
-import org.json.JSONArray
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -71,24 +71,15 @@ class QuickAddWidget : AppWidgetProvider() {
             monday.add(Calendar.DAY_OF_MONTH, -sinceMonday)
             val weekStart = fmt.format(monday.time)
 
-            val saving = HashSet<String>()
-            try {
-                val a = JSONArray(prefs.getString("flutter.widget_saving", "[]") ?: "[]")
-                for (i in 0 until a.length()) saving.add(a.getString(i))
-            } catch (_: Exception) {
-            }
-
             var t = 0.0
             var w = 0.0
             try {
-                val arr = JSONArray(prefs.getString("flutter.txns_v1", "[]") ?: "[]")
-                for (i in 0 until arr.length()) {
-                    val o = arr.getJSONObject(i)
-                    if (o.optBoolean("d", false)) continue
-                    if (o.optString("type") != "expense") continue
-                    if (saving.contains(o.optString("category"))) continue
-                    val day = o.optString("date").take(10)
-                    val amount = o.optDouble("amount", 0.0)
+                // Daily spending totals written by the app (the entries themselves are encrypted).
+                val o = JSONObject(prefs.getString("flutter.widget_days", "{}") ?: "{}")
+                val keys = o.keys()
+                while (keys.hasNext()) {
+                    val day = keys.next()
+                    val amount = o.optDouble(day, 0.0)
                     if (day == today) t += amount
                     if (day >= weekStart && day <= today) w += amount
                 }
