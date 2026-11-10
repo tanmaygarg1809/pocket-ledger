@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../attachments.dart';
 import '../models.dart';
-import '../receipt_scan.dart';
 import '../store.dart';
 import 'category_picker.dart';
 
@@ -150,123 +149,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     Navigator.of(context).pop();
   }
 
-  bool _scanning = false;
-
-  /// After a scan: choose which items to remember in the Price book.
-  Future<void> _offerPrices(ReceiptInfo info) async {
-    final shop = TextEditingController(text: info.merchant ?? '');
-    final chosen = List<bool>.filled(info.items.length, true);
-    final go = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Save prices to your Price book?', style: Theme.of(ctx).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              const Text('So you can see which shop is cheapest next time. Untick any that were read wrongly.'),
-              TextField(
-                controller: shop,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Shop'),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (var i = 0; i < info.items.length; i++)
-                      CheckboxListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        value: chosen[i],
-                        onChanged: (v) => setS(() => chosen[i] = v ?? false),
-                        title: Text(info.items[i].$1),
-                        secondary: Text(widget.store.money(info.items[i].$2)),
-                      ),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
-                  const Spacer(),
-                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save prices')),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    final name = shop.text.trim();
-    shop.dispose();
-    if (go != true || name.isEmpty) return;
-    final when = info.date ?? DateTime.now();
-    final now = DateTime.now().microsecondsSinceEpoch;
-    await widget.store.addPrices([
-      for (var i = 0; i < info.items.length; i++)
-        if (chosen[i])
-          PricePoint(
-            id: 'p${now}_$i',
-            item: info.items[i].$1,
-            price: info.items[i].$2,
-            shop: name,
-            date: when,
-            qty: guessPack(info.items[i].$1)?.$1,
-            unit: guessPack(info.items[i].$1)?.$2 ?? '',
-          ),
-    ]);
-  }
-
-  Future<void> _scan() async {
-    setState(() => _scanning = true);
-    try {
-      final r = await scanReceipt();
-      if (r == null || !mounted) return;
-      final (path, info) = r;
-      final saved = await Attachments.saveFromPath(
-          path, 'Receipt ${DateFormat('d MMM yyyy').format(DateTime.now())}.jpg');
-      setState(() {
-        _mode = 0;
-        if (info.total != null) _amount.text = info.total!.toStringAsFixed(2);
-        if (info.date != null) _date = info.date!;
-        if (info.merchant != null) {
-          _payeeCtrl?.text = info.merchant!;
-          final c = widget.store.categoryForPayee(info.merchant!, TxType.expense);
-          if (c != null && !_categoryTouched) _category = c;
-        }
-        if (saved != null) {
-          _files.add(saved);
-          _addedFiles.add(saved);
-        }
-      });
-      if (info.items.isNotEmpty && mounted) {
-        await _offerPrices(info);
-        if (!mounted) return;
-      }
-      final found = [
-        if (info.total != null) 'amount',
-        if (info.merchant != null) 'shop',
-        if (info.date != null) 'date',
-      ];
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(found.isEmpty
-              ? 'Could not read the receipt. The photo is attached: fill in the details.'
-              : 'Read the ${found.join(', ')}. Please check before saving.')));
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the camera or read the receipt.')));
-      }
-    } finally {
-      if (mounted) setState(() => _scanning = false);
-    }
-  }
-
   Future<void> _addFiles() async {
     final names = await Attachments.pick();
     if (names.isEmpty || !mounted) return;
@@ -296,17 +178,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (!_editing)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OutlinedButton.icon(
-                  onPressed: _scanning ? null : _scan,
-                  icon: _scanning
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.document_scanner_outlined),
-                  label: Text(_scanning ? 'Reading receipt…' : 'Scan a receipt'),
-                ),
-              ),
             SegmentedButton<int>(
               segments: const [
                 ButtonSegment(value: 0, label: Text('Expense')),
@@ -442,14 +313,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                   ),
               ],
             ),
-            if (_mode == 0)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Split on Splitwise'),
-                subtitle: const Text('Remind me to add it. Track it under Splitwise'),
-                value: _splitwise,
-                onChanged: (v) => setState(() => _splitwise = v),
-              ),
             if (!_editing && _mode != 2)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

@@ -7,11 +7,44 @@ import 'add_txn.dart';
 import 'drill.dart';
 
 /// Everything that came in: this year by month and by source.
-class IncomeScreen extends StatelessWidget {
+class IncomeScreen extends StatefulWidget {
   final AppStore store;
   const IncomeScreen({super.key, required this.store});
 
+  @override
+  State<IncomeScreen> createState() => _IncomeScreenState();
+}
+
+class _IncomeScreenState extends State<IncomeScreen> {
+  AppStore get store => widget.store;
+  int _view = 0; // 0 day, 1 week, 2 month
+
   static const teal = Color(0xFF0F766E);
+
+  /// Income grouped by day, week (starting Monday) or month, newest first.
+  List<(String, double)> _buckets(List<Txn> inc) {
+    final m = <String, double>{};
+    final order = <String, DateTime>{};
+    for (final t in inc) {
+      DateTime k;
+      String label;
+      if (_view == 0) {
+        k = DateTime(t.date.year, t.date.month, t.date.day);
+        label = DateFormat('EEE d MMM').format(k);
+      } else if (_view == 1) {
+        final d = DateTime(t.date.year, t.date.month, t.date.day);
+        k = d.subtract(Duration(days: d.weekday - 1));
+        label = 'Week of ${DateFormat('d MMM').format(k)}';
+      } else {
+        k = DateTime(t.date.year, t.date.month);
+        label = DateFormat('MMMM').format(k);
+      }
+      m[label] = (m[label] ?? 0) + t.amount;
+      order[label] = k;
+    }
+    final keys = m.keys.toList()..sort((a, b) => order[b]!.compareTo(order[a]!));
+    return [for (final k in keys) (k, m[k]!)];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,41 +103,24 @@ class IncomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('By month', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 4),
-              for (var i = 0; i < 12; i++)
-                InkWell(
-                  onTap: byMonth[i] == 0
-                      ? null
-                      : () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => DrillScreen(
-                                store: store,
-                                title: 'Income',
-                                subtitle: DateFormat('MMMM yyyy').format(DateTime(year, i + 1)),
-                                test: (t) =>
-                                    t.type == TxType.income && t.date.year == year && t.date.month == i + 1,
-                              ))),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(children: [
-                      SizedBox(width: 36, child: Text(DateFormat('MMM').format(DateTime(year, i + 1)))),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: maxM <= 0 ? 0 : byMonth[i] / maxM,
-                            minHeight: 14,
-                            color: const Color(0xFF14B8A6),
-                            backgroundColor: const Color(0xFFEAF7F5),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                          width: 90,
-                          child: Text(byMonth[i] == 0 ? '-' : store.money(byMonth[i]),
-                              textAlign: TextAlign.right)),
-                    ]),
-                  ),
+              SegmentedButton<int>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Day')),
+                  ButtonSegment(value: 1, label: Text('Week')),
+                  ButtonSegment(value: 2, label: Text('Month')),
+                ],
+                selected: {_view},
+                onSelectionChanged: (v) => setState(() => _view = v.first),
+              ),
+              const SizedBox(height: 8),
+              for (final b in _buckets(inc))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(b.$1),
+                  trailing: Text(store.money(b.$2),
+                      style: const TextStyle(color: teal, fontWeight: FontWeight.w600)),
                 ),
               const SizedBox(height: 16),
               Text('By source', style: theme.textTheme.titleSmall),

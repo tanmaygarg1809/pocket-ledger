@@ -5,7 +5,7 @@ import '../cloud.dart';
 import '../store.dart';
 import 'add_txn.dart';
 import 'auth.dart';
-import 'budgets.dart';
+import 'paid_to.dart';
 import 'debts.dart';
 import 'income.dart';
 import 'overview.dart';
@@ -87,7 +87,7 @@ class _ShellState extends State<Shell> {
     final pages = <Widget>[
       OverviewScreen(store: s),
       TransactionsScreen(store: s),
-      BudgetsScreen(store: s),
+      PaidToScreen(store: s),
       NetWorthScreen(store: s),
       SettingsScreen(store: s, cloud: widget.cloud),
     ];
@@ -112,8 +112,8 @@ class _ShellState extends State<Shell> {
                         .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.bold)),
               ),
-              item(Icons.south_west, 'Income', () => IncomeScreen(store: s)),
               item(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: s)),
+              item(Icons.south_west, 'Income', () => IncomeScreen(store: s)),
             ],
           ),
         ),
@@ -160,9 +160,9 @@ class _ShellState extends State<Shell> {
               selectedIcon: Icon(Icons.receipt_long),
               label: 'Activity'),
           NavigationDestination(
-              icon: Icon(Icons.flag_outlined),
-              selectedIcon: Icon(Icons.flag),
-              label: 'Budgets'),
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'Paid to'),
           NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),

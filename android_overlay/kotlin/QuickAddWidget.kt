@@ -39,7 +39,7 @@ class QuickAddWidget : AppWidgetProvider() {
         private fun update(context: Context, manager: AppWidgetManager, id: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_quick_add)
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val currency = prefs.getString("flutter.currency_v1", "£") ?: "£"
+            val currency = "₹"
             val (today, week) = totals(prefs)
             views.setTextViewText(R.id.widget_total, money(currency, today))
             views.setTextColor(R.id.widget_total, if (today < 0) 0xFFC0392B.toInt() else 0xFF0A8A7C.toInt())

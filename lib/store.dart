@@ -9,6 +9,36 @@ import 'models.dart';
 import 'wealth.dart';
 import 'widget_bridge.dart';
 
+/// Rupee amount with Indian digit grouping (12,34,567); paise only if present.
+String inr(double v, {String currency = '₹', bool paise = true}) {
+  final neg = v < 0;
+  final abs = v.abs();
+  final whole = abs.floor();
+  var frac = ((abs - whole) * 100).round();
+  var w = whole;
+  if (frac == 100) {
+    w += 1;
+    frac = 0;
+  }
+  final d = w.toString();
+  String g;
+  if (d.length <= 3) {
+    g = d;
+  } else {
+    final head = d.substring(0, d.length - 3);
+    final parts = <String>[];
+    var h = head;
+    while (h.length > 2) {
+      parts.insert(0, h.substring(h.length - 2));
+      h = h.substring(0, h.length - 2);
+    }
+    if (h.isNotEmpty) parts.insert(0, h);
+    g = '${parts.join(',')},${d.substring(d.length - 3)}';
+  }
+  final f = (paise && frac != 0) ? '.${frac.toString().padLeft(2, '0')}' : '';
+  return '${neg ? '-' : ''}$currency$g$f';
+}
+
 const currencies = <String>['£', '\$', '€', '₹', '¥', '₦', 'R\$', 'A\$', 'C\$'];
 
 /// "How much can I safely spend today" based on monthly category budgets.
@@ -163,7 +193,7 @@ class AppStore extends ChangeNotifier {
   BudgetPeriod budgetPeriod = BudgetPeriod.month;
   DateTime budgetAnchor = DateTime(DateTime.now().year, DateTime.now().month);
 
-  String currency = '£';
+  String currency = '₹';
   /// 'light' (default), 'dark' or 'system'. Kept on this phone only.
   String themeMode = 'light';
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -354,7 +384,7 @@ class AppStore extends ChangeNotifier {
     _needsMigrate = false;
     await p.reload(); // pick up changes made by the quick-add popup
     _prefs = p;
-    currency = p.getString(_kCurrency) ?? '£';
+    currency = '₹';
     themeMode = p.getString(_kTheme) ?? 'light';
 
     _txns.clear();
@@ -1452,7 +1482,6 @@ class AppStore extends ChangeNotifier {
       return false;
     }
     try {
-      currency = (j['currency'] as String?) ?? currency;
       if (j['budgets'] != null) {
         _budgets
           ..clear()
@@ -1545,8 +1574,7 @@ class AppStore extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------ formatting / export
-  String money(double v) =>
-      '${v < 0 ? '-' : ''}$currency${NumberFormat('#,##0.00').format(v.abs())}';
+  String money(double v) => inr(v, currency: currency);
 
   String toCsv() {
     String esc(String s) => '"${s.replaceAll('"', '""')}"';

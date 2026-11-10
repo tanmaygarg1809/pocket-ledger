@@ -11,10 +11,6 @@ import 'package:share_plus/share_plus.dart';
 import '../cloud.dart';
 import '../excel_backup.dart';
 import '../app_lock.dart';
-import '../reminders.dart';
-import 'forecast_screen.dart';
-import 'price_book.dart';
-import 'splitwise.dart';
 import '../store.dart';
 import 'auth.dart';
 import 'categories.dart';
@@ -224,21 +220,6 @@ class SettingsScreen extends StatelessWidget {
                   builder: (_) => RecurringScreen(store: store))),
             ),
             ListTile(
-              leading: const Icon(Icons.payments_outlined),
-              title: const Text('Currency symbol'),
-              subtitle: Wrap(
-                spacing: 8,
-                children: [
-                  for (final c in currencies)
-                    ChoiceChip(
-                      label: Text(c),
-                      selected: store.currency == c,
-                      onSelected: (_) => store.setCurrency(c),
-                    ),
-                ],
-              ),
-            ),
-            ListTile(
               leading: const Icon(Icons.palette_outlined),
               title: const Text('Appearance'),
               subtitle: Padding(
@@ -270,58 +251,6 @@ class SettingsScreen extends StatelessWidget {
                   await store.setAppLock(v);
                 }
               },
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.notifications_active_outlined),
-              title: const Text('Bill reminders'),
-              subtitle: Text(store.remindDays == 0
-                  ? 'Notify on the day a recurring bill is due'
-                  : 'Notify ${store.remindDays} day${store.remindDays == 1 ? '' : 's'} before a recurring bill is due'),
-              value: store.remindOn,
-              onChanged: (v) async {
-                if (v && !await Reminders.askPermission()) {
-                  if (context.mounted) _snack(context, 'Allow notifications for Kharcha in phone settings.');
-                  return;
-                }
-                await store.setReminders(on: v);
-              },
-            ),
-            if (store.remindOn)
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 72, right: 16),
-                title: const Text('Remind me'),
-                trailing: DropdownButton<int>(
-                  value: store.remindDays,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('On the day')),
-                    DropdownMenuItem(value: 1, child: Text('1 day before')),
-                    DropdownMenuItem(value: 2, child: Text('2 days before')),
-                    DropdownMenuItem(value: 3, child: Text('3 days before')),
-                    DropdownMenuItem(value: 7, child: Text('1 week before')),
-                  ],
-                  onChanged: (v) => store.setReminders(days: v),
-                ),
-              ),
-            ListTile(
-              leading: const Icon(Icons.price_check),
-              title: const Text('Price book'),
-              subtitle: Text('${store.prices.length} price${store.prices.length == 1 ? '' : 's'} saved · find the cheapest shop'),
-              onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => PriceBookScreen(store: store))),
-            ),
-            ListTile(
-              leading: const Icon(Icons.timeline),
-              title: const Text('Cash forecast'),
-              subtitle: const Text('Where your balance is heading in 30, 60 and 90 days'),
-              onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ForecastScreen(store: store))),
-            ),
-            ListTile(
-              leading: const Icon(Icons.call_split),
-              title: const Text('Splitwise'),
-              subtitle: Text('${store.splitTxns(1).length} still to add'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => SplitwiseScreen(store: store))),
             ),
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),

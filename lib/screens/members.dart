@@ -106,4 +106,4 @@ class MembersScreen extends StatelessWidget {
 }
 
 String wMoneyShort(AppStore s, double v) =>
-    '${v < 0 ? '-' : ''}${s.currency}${v.abs().round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')}';
+    inr(v.round().toDouble(), currency: s.currency, paise: false);

@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models.dart';
-import '../forecast.dart';
 import 'add_txn.dart';
 import 'drill.dart';
 import 'income.dart';
 import 'debts.dart';
-import 'splitwise.dart';
 import '../store.dart';
 import '../trends.dart';
 import 'month_bar.dart';
@@ -46,92 +44,7 @@ class OverviewScreen extends StatelessWidget {
             else ...[
             MonthBar(store: store),
             const SizedBox(height: 8),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0A8A7C), Color(0xFF19B59E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('True net this month (after saving)',
-                        style: TextStyle(color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${net >= 0 ? '+' : ''}${store.money(net)}',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _openIncome(context, store),
-                          child: _Stat(
-                            label: 'Income',
-                            value: store.money(income),
-                            icon: Icons.arrow_downward,
-                            color: Colors.green.shade700,
-                          ),
-                          ),
-                        ),
-                        Expanded(
-                          child: _Stat(
-                            label: 'Spent',
-                            value: store.money(expense),
-                            icon: Icons.arrow_upward,
-                            color: Colors.red.shade700,
-                          ),
-                        ),
-                        Expanded(
-                          child: _Stat(
-                            label: 'Saved',
-                            value: store.money(saved),
-                            icon: Icons.savings_outlined,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _TrendRow(
-                      trend: store.monthTrend(store.month),
-                      series: store.monthlySpendSeries(store.month),
-                      versus: 'last month (same days)',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _IncomeCard(store: store),
-            if (store.isCurrentMonth) ...[
-              const SizedBox(height: 12),
-              _BudgetProgressCard(store: store),
-            ],
-            if (store.splitTxns(1).isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.call_split),
-                  title: Text('${store.splitTxns(1).length} to add on Splitwise'),
-                  subtitle: Text(store.money(
-                      store.splitTxns(1).fold(0.0, (a, t) => a + t.amount))),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => SplitwiseScreen(store: store))),
-                ),
-              ),
-            ],
+            _SpendMonthCard(store: store),
             const SizedBox(height: 16),
             Text('Spending by category',
                 style: Theme.of(context).textTheme.titleMedium),
@@ -893,8 +806,117 @@ class _QuickRow extends StatelessWidget {
           ),
         );
     return Row(children: [
-      b(Icons.south_west, 'Income', () => IncomeScreen(store: store)),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF14B8A6), padding: const EdgeInsets.symmetric(horizontal: 4)),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => AddTxnScreen(store: store, initialMode: 1))),
+            icon: const Icon(Icons.south_west, size: 18),
+            label: const Text('Record income'),
+          ),
+        ),
+      ),
       b(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: store)),
     ]);
+  }
+}
+
+/// Spending for the selected month as one number, plus a bar per week of the month.
+class _SpendMonthCard extends StatelessWidget {
+  final AppStore store;
+  const _SpendMonthCard({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = store.month;
+    final days = DateUtils.getDaysInMonth(m.year, m.month);
+    final nWeeks = (days / 7).ceil();
+    final weeks = List<double>.filled(nWeeks, 0);
+    for (final t in store.monthTxns) {
+      if (t.type == TxType.expense && !store.isSaving(t.category)) {
+        weeks[((t.date.day - 1) ~/ 7).clamp(0, nWeeks - 1).toInt()] += t.amount;
+      }
+    }
+    final total = store.monthExpense;
+    final maxW = weeks.fold(0.0, (a, b) => a > b ? a : b);
+    const bar = Color(0xFF5B3FD9);
+    const barH = 110.0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Spent in ${DateFormat('MMMM').format(m)}',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 2),
+            Text(store.money(total),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.bold, color: bar)),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var i = 0; i < nWeeks; i++)
+                  Expanded(
+                    child: InkWell(
+                      onTap: weeks[i] == 0
+                          ? null
+                          : () {
+                              final from = i * 7 + 1;
+                              final to = (i + 1) * 7 > days ? days : (i + 1) * 7;
+                              Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => DrillScreen(
+                                        store: store,
+                                        title: 'Week ${i + 1}',
+                                        subtitle: '$from-$to ${DateFormat('MMMM').format(m)}',
+                                        test: (t) =>
+                                            t.type == TxType.expense &&
+                                            !store.isSaving(t.category) &&
+                                            t.date.year == m.year &&
+                                            t.date.month == m.month &&
+                                            t.date.day >= from &&
+                                            t.date.day <= to,
+                                      )));
+                            },
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(weeks[i] == 0 ? '' : store.money(weeks[i]).replaceAll('.00', ''),
+                              style: const TextStyle(fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: maxW <= 0 ? 4 : (4 + (barH - 4) * weeks[i] / maxW),
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: weeks[i] == maxW && maxW > 0 ? bar : const Color(0xFFB7A8F5),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Week ${i + 1}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _TrendRow(
+              trend: store.monthTrend(store.month),
+              series: store.monthlySpendSeries(store.month),
+              versus: 'last month (same days)',
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

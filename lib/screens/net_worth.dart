@@ -16,7 +16,7 @@ const _green = Color(0xFF2EAD6B);
 
 /// Whole-pound money (net worth does not need pennies).
 String wMoney(AppStore s, double v, {bool sign = false}) {
-  final txt = '${s.currency}${NumberFormat('#,##0').format(v.abs())}';
+  final txt = inr(v.abs(), currency: s.currency, paise: false);
   if (v < 0) return '-$txt';
   return sign && v > 0 ? '+$txt' : txt;
 }

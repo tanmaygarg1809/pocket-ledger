@@ -182,7 +182,7 @@ for f in ('android/app/src/main/res/values/styles.xml', 'android/app/src/main/re
         open(f, 'w').write(t)
 PY
 
-flutter pub add firebase_core firebase_auth cloud_firestore excel local_auth:^2.3.0 flutter_local_notifications:^18.0.1 timezone image_picker google_mlkit_text_recognition flutter_secure_storage:^9.2.2 encrypt
+flutter pub add firebase_core firebase_auth cloud_firestore excel local_auth:^2.3.0 flutter_local_notifications:^18.0.1 timezone image_picker flutter_secure_storage:^9.2.2 encrypt
 flutter pub get
 flutter analyze || echo "WARNING: analyze reported issues (continuing)"
 flutter test || echo "WARNING: tests failed (continuing)"
