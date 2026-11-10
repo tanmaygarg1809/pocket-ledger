@@ -114,7 +114,7 @@ class _PocketLedgerAppState extends State<PocketLedgerApp>
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        themeMode: AppTheme.mode(widget.store.themeMode),
+        themeMode: ThemeMode.light,
         builder: (context, child) => Stack(
           children: [
             if (child != null) child,

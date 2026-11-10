@@ -219,23 +219,6 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => RecurringScreen(store: store))),
             ),
-            ListTile(
-              leading: const Icon(Icons.palette_outlined),
-              title: const Text('Appearance'),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'light', label: Text('Light')),
-                    ButtonSegment(value: 'dark', label: Text('Dark')),
-                    ButtonSegment(value: 'system', label: Text('Phone')),
-                  ],
-                  selected: {store.themeMode},
-                  onSelectionChanged: (v) => store.setThemeMode(v.first),
-                ),
-              ),
-            ),
             const Divider(),
             SwitchListTile(
               secondary: const Icon(Icons.fingerprint),
