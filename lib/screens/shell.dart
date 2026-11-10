@@ -133,7 +133,7 @@ class _ShellState extends State<Shell> {
                         builder: (_) => AddTxnScreen(store: s, initialMode: 1)),
                   ),
                   icon: const Icon(Icons.south_west),
-                  label: const Text('Income'),
+                  label: const Text('Money in'),
                 ),
                 const SizedBox(height: 10),
                 FloatingActionButton.extended(
@@ -142,7 +142,7 @@ class _ShellState extends State<Shell> {
                     MaterialPageRoute(builder: (_) => AddTxnScreen(store: s)),
                   ),
                   icon: const Icon(Icons.add),
-                  label: const Text('Expense'),
+                  label: const Text('Paid out'),
                 ),
               ],
             )
@@ -154,11 +154,11 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),
               selectedIcon: Icon(Icons.dashboard),
-              label: 'Overview'),
+              label: 'Home'),
           NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),
               selectedIcon: Icon(Icons.receipt_long),
-              label: 'Activity'),
+              label: 'All entries'),
           NavigationDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
@@ -166,7 +166,7 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
-              label: 'Net worth'),
+              label: 'My money'),
           NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings),

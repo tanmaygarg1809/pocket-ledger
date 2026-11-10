@@ -115,12 +115,14 @@ class _PocketLedgerAppState extends State<PocketLedgerApp>
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.light,
-        builder: (context, child) => Stack(
+        builder: (context, child) => MediaQuery(
+         data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.2)),
+         child: Stack(
           children: [
             if (child != null) child,
             if (_locked) Positioned.fill(child: LockScreen(onRetry: _unlock)),
           ],
-        ),
+        )),
         home: Shell(store: widget.store, cloud: widget.cloud),
       ),
     );

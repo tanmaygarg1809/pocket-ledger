@@ -163,7 +163,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
     final store = widget.store;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_editing ? 'Edit transaction' : 'New transaction'),
+        title: Text(_editing ? 'Change entry' : 'New entry'),
         actions: [
           if (_editing)
             IconButton(
@@ -180,9 +180,8 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
           children: [
             SegmentedButton<int>(
               segments: const [
-                ButtonSegment(value: 0, label: Text('Expense')),
-                ButtonSegment(value: 1, label: Text('Income')),
-                ButtonSegment(value: 2, label: Text('Refund')),
+                ButtonSegment(value: 0, label: Text('Paid out')),
+                ButtonSegment(value: 1, label: Text('Money in')),
               ],
               selected: {_mode},
               onSelectionChanged: (s) => setState(() {
@@ -236,7 +235,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                     focusNode: focusNode,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Payee (optional)',
+                      labelText: 'Paid to (name)',
                       hintText: 'e.g. Tesco, Deliveroo',
                       border: OutlineInputBorder(),
                     ),
@@ -264,7 +263,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
               controller: _note,
               maxLength: 80,
               decoration: const InputDecoration(
-                labelText: 'Note (optional)',
+                labelText: 'Details (what for)',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -323,7 +322,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                 onChanged: (v) => setState(() => _repeat = v),
               ),
             const SizedBox(height: 16),
-            FilledButton(onPressed: _save, child: const Text('Save')),
+            FilledButton(onPressed: _save, child: const Padding(padding: EdgeInsets.all(8), child: Text('SAVE', style: TextStyle(fontSize: 18)))),
           ],
         ),
       ),
