@@ -48,10 +48,22 @@ class _PaidToScreenState extends State<PaidToScreen> {
           }
           if (r.last == null || t.date.isAfter(r.last!.date)) r.last = t;
         }
-        final q = _q.trim().toLowerCase();
+        final q = _q.trim().toLowerCase().replaceAll(',', '');
+        final hits = q.isEmpty
+            ? <Txn>[]
+            : (store.all.where((t) {
+                if (t.type != TxType.expense) return false;
+                final amt = t.amount == t.amount.roundToDouble()
+                    ? t.amount.round().toString()
+                    : t.amount.toStringAsFixed(2);
+                return t.payee.toLowerCase().contains(q) ||
+                    t.note.toLowerCase().contains(q) ||
+                    t.category.toLowerCase().contains(q) ||
+                    amt.contains(q);
+              }).toList()
+              ..sort((a, b) => b.date.compareTo(a.date)));
         final list = rows.values
-            .where((r) => (r.thisM != 0 || r.lastM != 0 || q.isNotEmpty) &&
-                (q.isEmpty || r.name.toLowerCase().contains(q)))
+            .where((r) => r.thisM != 0 || r.lastM != 0)
             .toList()
           ..sort((a, b) => (b.thisM + b.lastM).compareTo(a.thisM + a.lastM));
         final totalThis = list.fold(0.0, (a, r) => a + r.thisM);
@@ -66,7 +78,7 @@ class _PaidToScreenState extends State<PaidToScreen> {
             const SizedBox(height: 8),
             TextField(
               decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search), hintText: 'Search a name', border: OutlineInputBorder()),
+                  prefixIcon: Icon(Icons.search), hintText: 'Search name, details or amount', border: OutlineInputBorder()),
               onChanged: (v) => setState(() => _q = v),
             ),
             const SizedBox(height: 8),
@@ -89,11 +101,33 @@ class _PaidToScreenState extends State<PaidToScreen> {
                 ]),
               ),
             ),
-            if (list.isEmpty)
+            if (q.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                    hits.isEmpty
+                        ? 'Nothing found.'
+                        : '${hits.length} found, total ${store.money(hits.fold(0.0, (a, t) => a + t.amount))}',
+                    style: Theme.of(context).textTheme.titleMedium),
+              ),
+              for (final t in hits.take(200))
+                Card(
+                  child: ListTile(
+                    title: Text('${_who(t)}  ${store.money(t.amount)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                        '${DateFormat('EEE d MMM yyyy').format(t.date)}${t.note.isNotEmpty ? '\n${t.note}' : ''}'),
+                    isThreeLine: t.note.isNotEmpty,
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => AddTxnScreen(store: store, existing: t))),
+                  ),
+                ),
+            ] else if (list.isEmpty)
               const Padding(
                   padding: EdgeInsets.all(24),
                   child: Text('No payments in these two months. Add a name in "Paid to" when you record an expense.')),
-            for (final r in list)
+            if (q.isEmpty)
+             for (final r in list)
               Card(
                 child: ListTile(
                   title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w600)),
