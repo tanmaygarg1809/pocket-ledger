@@ -224,7 +224,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
         final labels = [for (final p in series) DateFormat('MMM').format(p.date)];
         final prevMonth = series.length >= 2 ? series[series.length - 2].value : 0.0;
         final first = series.first.value;
-        final owed = f == null ? store.totalOwed : 0.0;
+        final owed = store.owedFor(f);
         final nw = w.netWorthOf(f) - owed;
         final monthChange = nw - prevMonth;
         final rangeChange = nw - first;
@@ -328,7 +328,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                   const SizedBox(width: 8),
                   Expanded(child: _Tile('Debts', '-${wMoney(store, owed)}', _coral)),
                 ]),
-                ..._loans(context, owed),
+                ..._loans(context, owed, f),
               ] else if (w.isEmpty)
                 Card(
                   margin: const EdgeInsets.only(top: 12),
@@ -400,7 +400,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
                 if (f == null && w.hasFamily) _ByPerson(store: store),
                 _Allocation(store: store, owner: f),
                 for (final g in wealthGroups) ..._group(context, g, scheme, f),
-                if (owed > 0) ..._loans(context, owed),
+                if (owed > 0) ..._loans(context, owed, f),
               ],
               _Policies(store: store),
             ],
@@ -410,7 +410,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     );
   }
 
-  List<Widget> _loans(BuildContext context, double owed) => [
+  List<Widget> _loans(BuildContext context, double owed, String? f) => [
     const Divider(height: 28),
     Row(children: [
       Expanded(
@@ -421,7 +421,7 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
       Text('-${wMoney(store, owed)}',
           style: const TextStyle(fontWeight: FontWeight.bold)),
     ]),
-    for (final d in store.debts.where((d) => !d.cleared))
+    for (final d in store.debtsFor(f).where((d) => !d.cleared))
       ListTile(
         contentPadding: EdgeInsets.zero,
         onTap: () => Navigator.of(context).push(

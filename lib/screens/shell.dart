@@ -124,16 +124,17 @@ class _ShellState extends State<Shell> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FloatingActionButton.extended(
-                  heroTag: 'add_income',
-                  backgroundColor: const Color(0xFF14B8A6),
-                  foregroundColor: Colors.white,
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: const Color(0xFFD3F5F0),
+                      foregroundColor: const Color(0xFF0F766E)),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (_) => AddTxnScreen(store: s, initialMode: 1)),
                   ),
-                  icon: const Icon(Icons.south_west),
-                  label: const Text('Money in'),
+                  icon: const Icon(Icons.south_west, size: 16),
+                  label: const Text('Money in', style: TextStyle(fontSize: 13)),
                 ),
                 const SizedBox(height: 10),
                 FloatingActionButton.extended(

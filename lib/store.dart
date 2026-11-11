@@ -289,6 +289,12 @@ class AppStore extends ChangeNotifier {
 
   // ------------------------------------------------------------ debts
   List<Debt> get debts => List.unmodifiable(_debts);
+  /// Debts for one person (null = everyone, Wealth.joint = whole family).
+  List<Debt> debtsFor(String? f) => _debts
+      .where((d) => f == null || (f == Wealth.joint ? d.owner.isEmpty : d.owner == f))
+      .toList();
+  double owedFor(String? f) => debtsFor(f).where((d) => !d.cleared).fold(0.0, (a, d) => a + d.left);
+
   double get totalOwed => _debts.fold(0.0, (a, d) => a + d.left);
   double get monthlyDebtPayments =>
       _debts.where((d) => !d.cleared).fold(0.0, (a, d) => a + d.monthly);

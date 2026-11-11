@@ -16,6 +16,7 @@ class DebtsScreen extends StatelessWidget {
         text: d == null || d.monthly == 0 ? '' : d.monthly.toStringAsFixed(0));
     final note = TextEditingController(text: d?.note ?? '');
     DateTime? due = d?.due;
+    var owner = d?.owner ?? '';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -23,6 +24,23 @@ class DebtsScreen extends StatelessWidget {
           title: Text(d == null ? 'Add a debt' : 'Edit debt'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(spacing: 8, children: [
+                  ChoiceChip(
+                    label: const Text('Family'),
+                    selected: owner.isEmpty,
+                    onSelected: (_) => setS(() => owner = ''),
+                  ),
+                  for (final p in store.wealth.people)
+                    ChoiceChip(
+                      label: Text(p.name),
+                      selected: owner == p.id,
+                      onSelected: (_) => setS(() => owner = p.id),
+                    ),
+                ]),
+              ),
+              const Text('Whose debt is this?', style: TextStyle(fontSize: 12)),
               TextField(
                 controller: lender,
                 textCapitalization: TextCapitalization.words,
@@ -77,10 +95,10 @@ class DebtsScreen extends StatelessWidget {
     final m = double.tryParse(monthly.text.trim()) ?? 0;
     if (d == null) {
       await store.saveDebt(Debt(
-          id: store.newId(), lender: lender.text.trim(), amount: a, monthly: m, due: due, note: note.text.trim()));
+          id: store.newId(), lender: lender.text.trim(), amount: a, monthly: m, due: due, note: note.text.trim(), owner: owner));
     } else {
       await store.saveDebt(d.copyWith(
-          lender: lender.text.trim(), amount: a, monthly: m, due: due, clearDue: due == null, note: note.text.trim()));
+          lender: lender.text.trim(), amount: a, monthly: m, due: due, clearDue: due == null, note: note.text.trim(), owner: owner));
     }
   }
 
@@ -185,6 +203,9 @@ class DebtsScreen extends StatelessWidget {
                           ],
                         ),
                       ]),
+                      if (d.owner.isNotEmpty || store.wealth.people.isNotEmpty)
+                        Text(d.owner.isEmpty ? 'Family' : store.wealth.people.where((p) => p.id == d.owner).map((p) => p.name).firstOrNull ?? 'Family',
+                            style: theme.textTheme.bodySmall),
                       Text('${store.money(d.left)} left of ${store.money(d.amount)}',
                           style: theme.textTheme.bodyLarge),
                       const SizedBox(height: 8),

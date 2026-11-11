@@ -202,11 +202,12 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _amount,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
               autofocus: !_editing,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: 'Amount',
+                labelText: 'Amount (₹)',
                 prefixText: store.currency,
                 border: const OutlineInputBorder(),
               ),
@@ -236,7 +237,7 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       labelText: 'Paid to (name)',
-                      hintText: 'e.g. Tesco, Deliveroo',
+                      hintText: 'e.g. Ramesh, Sharma traders',
                       border: OutlineInputBorder(),
                     ),
                     onFieldSubmitted: (v) {
@@ -246,17 +247,6 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                   );
                 },
               ),
-            ),
-            const SizedBox(height: 16),
-            Text('Category', style: Theme.of(context).textTheme.labelLarge),
-            CategoryPicker(
-              store: store,
-              type: _type,
-              selected: _category,
-              onChanged: (c) => setState(() {
-                _category = c;
-                _categoryTouched = true;
-              }),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -273,6 +263,21 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
               title: Text(DateFormat('EEE, d MMM yyyy').format(_date)),
               trailing: const Icon(Icons.edit_calendar),
               onTap: _pickDate,
+            ),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('More (category, receipt photo, repeat)'),
+              children: [
+            const SizedBox(height: 16),
+            Text('Category', style: Theme.of(context).textTheme.labelLarge),
+            CategoryPicker(
+              store: store,
+              type: _type,
+              selected: _category,
+              onChanged: (c) => setState(() {
+                _category = c;
+                _categoryTouched = true;
+              }),
             ),
             const SizedBox(height: 8),
             Row(
@@ -321,6 +326,8 @@ class _AddTxnScreenState extends State<AddTxnScreen> {
                 value: _repeat,
                 onChanged: (v) => setState(() => _repeat = v),
               ),
+              ],
+            ),
             const SizedBox(height: 16),
             FilledButton(onPressed: _save, child: const Padding(padding: EdgeInsets.all(8), child: Text('SAVE', style: TextStyle(fontSize: 18)))),
           ],

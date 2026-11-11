@@ -6,6 +6,7 @@ import '../models.dart';
 import 'add_txn.dart';
 import 'drill.dart';
 import 'income.dart';
+import 'spend_calendar.dart';
 import 'debts.dart';
 import '../store.dart';
 import '../trends.dart';
@@ -44,6 +45,8 @@ class OverviewScreen extends StatelessWidget {
             else ...[
             MonthBar(store: store),
             const SizedBox(height: 8),
+            SpendCalendar(store: store),
+            const SizedBox(height: 12),
             _SpendMonthCard(store: store),
             const SizedBox(height: 16),
             Text('Spending by category',
@@ -809,13 +812,16 @@ class _QuickRow extends StatelessWidget {
       Expanded(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: FilledButton.icon(
+          child: FilledButton.tonalIcon(
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF14B8A6), padding: const EdgeInsets.symmetric(horizontal: 4)),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: const Color(0xFFD3F5F0),
+                foregroundColor: const Color(0xFF0F766E),
+                padding: const EdgeInsets.symmetric(horizontal: 4)),
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => AddTxnScreen(store: store, initialMode: 1))),
             icon: const Icon(Icons.south_west, size: 18),
-            label: const Text('Record income'),
+            label: const Text('Money in'),
           ),
         ),
       ),

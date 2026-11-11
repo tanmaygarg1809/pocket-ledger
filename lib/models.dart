@@ -420,6 +420,7 @@ class Debt {
   final double monthly; // planned monthly repayment (0 = none)
   final DateTime? due; // final due date
   final String note;
+  final String owner; // member id, or '' for the whole family
 
   const Debt({
     required this.id,
@@ -429,13 +430,14 @@ class Debt {
     this.monthly = 0,
     this.due,
     this.note = '',
+    this.owner = '',
   });
 
   double get left => (amount - paid) < 0 ? 0 : amount - paid;
   double get fraction => amount <= 0 ? 0 : (paid / amount).clamp(0.0, 1.0).toDouble();
   bool get cleared => amount > 0 && paid >= amount;
 
-  Debt copyWith({String? lender, double? amount, double? paid, double? monthly, DateTime? due, bool clearDue = false, String? note}) => Debt(
+  Debt copyWith({String? lender, double? amount, double? paid, double? monthly, DateTime? due, bool clearDue = false, String? note, String? owner}) => Debt(
         id: id,
         lender: lender ?? this.lender,
         amount: amount ?? this.amount,
@@ -443,11 +445,13 @@ class Debt {
         monthly: monthly ?? this.monthly,
         due: clearDue ? null : (due ?? this.due),
         note: note ?? this.note,
+        owner: owner ?? this.owner,
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'lender': lender,
+        'owner': owner,
         'amount': amount,
         'paid': paid,
         'monthly': monthly,
@@ -463,5 +467,6 @@ class Debt {
         monthly: (j['monthly'] as num?)?.toDouble() ?? 0,
         due: j['due'] == null ? null : DateTime.tryParse(j['due'] as String),
         note: (j['note'] as String?) ?? '',
+        owner: (j['owner'] as String?) ?? '',
       );
 }
