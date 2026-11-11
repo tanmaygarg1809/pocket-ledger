@@ -177,7 +177,7 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
-              label: 'My money'),
+              label: 'Net worth'),
         ],
       ),
     );
