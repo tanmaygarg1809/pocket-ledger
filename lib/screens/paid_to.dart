@@ -60,7 +60,7 @@ class _PaidToScreenState extends State<PaidToScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           children: [
-            Text('Paid to', style: Theme.of(context).textTheme.headlineSmall),
+            Text('Report: who was paid', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             MonthBar(store: store),
             const SizedBox(height: 8),

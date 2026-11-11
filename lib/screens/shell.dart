@@ -88,8 +88,8 @@ class _ShellState extends State<Shell> {
       OverviewScreen(store: s),
       TransactionsScreen(store: s),
       PaidToScreen(store: s),
+      DebtsScreen(store: s),
       NetWorthScreen(store: s),
-      SettingsScreen(store: s, cloud: widget.cloud),
     ];
     Widget item(IconData icon, String label, Widget Function() page) => ListTile(
           leading: Icon(icon),
@@ -112,8 +112,14 @@ class _ShellState extends State<Shell> {
                         .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.bold)),
               ),
-              item(Icons.account_balance_outlined, 'Debts', () => DebtsScreen(store: s)),
               item(Icons.south_west, 'Income', () => IncomeScreen(store: s)),
+              item(
+                  Icons.settings_outlined,
+                  'Settings and backup',
+                  () => Scaffold(
+                        appBar: AppBar(title: const Text('Settings')),
+                        body: SafeArea(child: SettingsScreen(store: s, cloud: widget.cloud)),
+                      )),
             ],
           ),
         ),
@@ -159,19 +165,19 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),
               selectedIcon: Icon(Icons.receipt_long),
-              label: 'All entries'),
+              label: 'Expense entries'),
           NavigationDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
-              label: 'Paid to'),
+              label: 'Report'),
+          NavigationDestination(
+              icon: Icon(Icons.account_balance_outlined),
+              selectedIcon: Icon(Icons.account_balance),
+              label: 'Debts'),
           NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
               label: 'My money'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Settings'),
         ],
       ),
     );

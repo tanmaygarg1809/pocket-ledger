@@ -658,44 +658,21 @@ class _HeroBanner extends StatelessWidget {
     final hello = now.hour < 12 ? 'Good morning' : (now.hour < 18 ? 'Good afternoon' : 'Good evening');
     final lines = <String>[];
     if (lines.isEmpty) lines.add('Record income and spending whenever suits you');
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF5B3FD9), Color(0xFF8B6CF0)]),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$hello, ${DateFormat('EEEE d MMMM').format(now)}',
-                    style: const TextStyle(color: Color(0xFFE4DDFF), fontSize: 13)),
-                const SizedBox(height: 6),
-                for (final l in lines)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(l,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => Scaffold.maybeOf(context)?.openDrawer(),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(color: Color(0xFFFF6B5E), shape: BoxShape.circle),
-              child: const Icon(Icons.menu, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: Text('$hello',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF3B2A99))),
+        ),
+        Text(DateFormat('EEE d MMM').format(now),
+            style: const TextStyle(fontSize: 14, color: Colors.black54)),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menu',
+        ),
+      ],
     );
   }
 }
